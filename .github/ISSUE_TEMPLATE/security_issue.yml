@@ -1,0 +1,71 @@
+name: Security Issue
+description: Report a security vulnerability responsibly
+title: "[Security]: "
+labels: ["security", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please avoid posting sensitive exploit details publicly. Share enough information for safe validation and coordinated remediation.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Vulnerability Summary
+      description: Describe the vulnerability in 1-3 sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected Area
+      description: What component, endpoint, or workflow is affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction (safe level)
+      description: High-level reproduction details without public exploit specifics.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What is the potential impact and blast radius?
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation
+      description: Any immediate mitigation steps for users/operators.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Confidentiality Checklist
+      options:
+        - label: I avoided sharing sensitive exploit details publicly.
+          required: true
+        - label: I provided enough information for maintainers to validate impact.
+          required: true

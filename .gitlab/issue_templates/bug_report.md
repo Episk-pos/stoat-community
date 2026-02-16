@@ -1,30 +1,43 @@
 ---
 name: Bug Report
-about: Create a report to help us improve Stoat
+about: Report a reproducible Stoat bug
 title: "[BUG] "
 labels: ["bug", "needs triage"]
 ---
 
-### Describe the bug
-A clear and concise description of what the bug is.
+## Summary
+Describe the bug in 1-3 sentences.
 
-### To Reproduce
-Steps to reproduce the behavior:
-1. Go to ...
-2. Click on ...
-3. Scroll down to ...
-4. See error
+## Pre-submit checklist
+- [ ] I searched for duplicates.
+- [ ] I can reproduce this on a recent build.
+- [ ] I included steps, environment, and evidence.
 
-### Expected behavior
-A clear and concise description of what you expected to happen.
+## Steps to reproduce
+1. 
+2. 
+3. 
 
-### Screenshots
-If applicable, add screenshots to help explain your problem.
+## Expected behavior
+What should happen?
 
-### Environment
- - OS: [e.g. Windows, Linux]
- - Client: [e.g. Desktop, Web, Mobile]
- - Version: [e.g. 1.0.0]
+## Actual behavior
+What happens instead?
 
-### Additional context
-Add any other context about the problem here.
+## Frequency and impact
+- Frequency: (always / often / sometimes / once)
+- Severity: (blocking / major / minor / cosmetic)
+- Workaround: (none / describe workaround)
+
+## Environment
+- OS:
+- Client: (Desktop / Web / Mobile)
+- Version:
+- Device:
+
+## Evidence
+- Screenshots or video:
+- Logs / stack traces:
+
+## Additional context
+Anything else that helps triage.

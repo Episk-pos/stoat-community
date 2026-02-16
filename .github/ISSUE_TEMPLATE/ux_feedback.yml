@@ -1,0 +1,70 @@
+name: UX Feedback
+description: Report usability friction and UX opportunities
+title: "[UX]: "
+labels: ["ux", "needs-triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: UX Area
+      options:
+        - Onboarding
+        - Navigation
+        - Messaging
+        - Voice/Video
+        - Settings
+        - Notifications
+        - Accessibility
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Experience
+      description: What does the user experience today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: pain
+    attributes:
+      label: Pain Points
+      description: What is confusing, slow, or error-prone?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: What should change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Why This Matters
+      description: What user outcome improves?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting Evidence
+      description: Screenshots, recordings, quotes, or references.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I searched for existing duplicate issues.
+          required: true
+        - label: I described both current pain and desired change.
+          required: true
