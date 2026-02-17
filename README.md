@@ -1,6 +1,6 @@
 # Stoat Community
 
-Welcome to the central hub for the **Stoat** community.
+Welcome to the central hub for the **Episkopos** community's **Stoat** fork(s).
 
 This repository is the source of truth for:
 - 🐛 **Bug Reports**
@@ -9,9 +9,9 @@ This repository is the source of truth for:
 - 🔒 **Security Reports**
 
 ## Where To File Issues
-Use **GitLab Issues** in this repository.
+Use **GitHub Issues** in this repository.
 
-1. Open `New issue`
+1. [Open `New issue`](https://github.com/Episk-pos/stoat-community/issues/new/choose)
 2. Choose a template
 3. Fill all required sections
 
@@ -20,10 +20,6 @@ Available templates:
 - `Feature Request`
 - `UX Feedback`
 - `Security Issue`
-
-Template support:
-- `.github/ISSUE_TEMPLATE/*.yml` provides typed, question-based issue forms where the platform supports it.
-- `.gitlab/issue_templates/*.md` provides structured markdown templates as a fallback.
 
 ## Before Opening A New Issue
 1. Search existing issues to avoid duplicates.
