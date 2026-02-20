@@ -1,0 +1,150 @@
+allow_k8s_contexts(['kind-stoat'])
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+config.define_string('backend_path', args=True)
+config.define_string('frontend_path', args=True)
+cfg = config.parse()
+
+BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
+FRONTEND = cfg.get('frontend_path', os.path.join(os.getcwd(), '../../stoat-frontend'))
+DOCKER_DIR = os.path.join(os.getcwd(), 'docker')
+SIBLING_DIR = os.path.join(os.getcwd(), '../..')
+
+REPOS = {
+    'backend': {
+        'path': BACKEND,
+        'clone_url': 'https://github.com/episk-pos/stoat-backend.git',
+        'dir_name': 'stoat-backend',
+    },
+    'frontend': {
+        'path': FRONTEND,
+        'clone_url': 'https://github.com/episk-pos/stoat-frontend.git',
+        'dir_name': 'stoat-frontend',
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Repo detection — check for sibling repos, offer clone buttons if missing
+# ---------------------------------------------------------------------------
+has_backend = os.path.exists(os.path.join(BACKEND, 'Cargo.toml'))
+has_frontend = os.path.exists(os.path.join(FRONTEND, 'package.json'))
+
+for name, repo in REPOS.items():
+    present = has_backend if name == 'backend' else has_frontend
+    if not present:
+        warn('stoat-%s not found at %s — use the "Clone stoat-%s" button in the Tilt UI to clone it.' % (name, repo['path'], name))
+        local_resource(
+            'clone-stoat-%s' % name,
+            cmd='echo "stoat-%s is not cloned yet. Click the Clone button to set it up."' % name,
+            labels=['setup'],
+        )
+        cmd_button(
+            'Clone stoat-%s' % name,
+            argv=[
+                'sh', '-c',
+                'git clone %s %s && echo "Cloned stoat-%s successfully."' % (
+                    repo['clone_url'],
+                    os.path.join(SIBLING_DIR, repo['dir_name']),
+                    name,
+                ),
+            ],
+            resource='clone-stoat-%s' % name,
+            icon_name='cloud_download',
+            text='Clone stoat-%s' % name,
+        )
+
+# ---------------------------------------------------------------------------
+# Namespace + Config
+# ---------------------------------------------------------------------------
+k8s_yaml('k8s/namespace.yaml')
+k8s_yaml('k8s/config.yaml')
+
+# ---------------------------------------------------------------------------
+# Infrastructure (always deployed — useful even without app repos)
+# ---------------------------------------------------------------------------
+k8s_yaml('k8s/infra/redis.yaml')
+k8s_yaml('k8s/infra/mongodb.yaml')
+k8s_yaml('k8s/infra/minio.yaml')
+k8s_yaml('k8s/infra/rabbitmq.yaml')
+k8s_yaml('k8s/infra/maildev.yaml')
+
+k8s_resource('redis', labels=['infra'])
+k8s_resource('mongodb', labels=['infra'],
+             port_forwards=['14717:27017'])
+k8s_resource('minio', labels=['infra'],
+             port_forwards=['14009:9000'])
+k8s_resource('minio-init', labels=['infra'],
+             resource_deps=['minio'])
+k8s_resource('rabbitmq', labels=['infra'],
+             port_forwards=['14672:15672'])
+k8s_resource('maildev', labels=['infra'],
+             port_forwards=['14080:8080'])
+
+# ---------------------------------------------------------------------------
+# Backend services — host-built binaries + thin Docker images
+# ---------------------------------------------------------------------------
+if has_backend:
+    SERVICES = {
+        'delta':   {'crate': 'revolt-delta',   'binary': 'revolt-delta'},
+        'bonfire': {'crate': 'revolt-bonfire',  'binary': 'revolt-bonfire'},
+        'autumn':  {'crate': 'revolt-autumn',   'binary': 'revolt-autumn'},
+        'january': {'crate': 'revolt-january',  'binary': 'revolt-january'},
+    }
+
+    for name, svc in SERVICES.items():
+        image_tag = 'stoat-%s:dev' % name
+        dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
+
+        # 1) Build the Rust binary on the host
+        local_resource(
+            '%s-build' % name,
+            cmd='cd %s && cargo build --release -p %s' % (BACKEND, svc['crate']),
+            deps=[os.path.join(BACKEND, 'crates')],
+            labels=['build'],
+        )
+
+        # 2) Build thin Docker image and load into Kind
+        local_resource(
+            '%s-image' % name,
+            cmd=' && '.join([
+                'docker build -f %s -t %s %s' % (dockerfile, image_tag, BACKEND),
+                'kind load docker-image %s --name stoat' % image_tag,
+            ]),
+            resource_deps=['%s-build' % name],
+            labels=['build'],
+        )
+
+    # Apply service manifests
+    k8s_yaml('k8s/services/delta.yaml')
+    k8s_yaml('k8s/services/bonfire.yaml')
+    k8s_yaml('k8s/services/autumn.yaml')
+    k8s_yaml('k8s/services/january.yaml')
+
+    # Wire up k8s resources with port forwards and dependencies
+    k8s_resource('delta', labels=['services'],
+                 port_forwards=['14702:8000'],
+                 resource_deps=['delta-image', 'redis', 'mongodb', 'minio-init', 'rabbitmq'])
+    k8s_resource('bonfire', labels=['services'],
+                 port_forwards=['14703:9000'],
+                 resource_deps=['bonfire-image', 'redis', 'mongodb', 'rabbitmq'])
+    k8s_resource('autumn', labels=['services'],
+                 port_forwards=['14704:8000'],
+                 resource_deps=['autumn-image', 'redis', 'mongodb', 'minio-init'])
+    k8s_resource('january', labels=['services'],
+                 port_forwards=['14705:8000'],
+                 resource_deps=['january-image', 'redis', 'mongodb'])
+
+# ---------------------------------------------------------------------------
+# Frontend — local Vite dev server (not containerised)
+# ---------------------------------------------------------------------------
+if has_frontend:
+    frontend_deps = ['delta'] if has_backend else []
+    local_resource(
+        'frontend-dev',
+        serve_cmd='cd %s && pnpm dev' % FRONTEND,
+        labels=['frontend'],
+        resource_deps=frontend_deps,
+        links=['http://localhost:5173'],
+    )

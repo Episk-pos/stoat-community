@@ -1,0 +1,88 @@
+# Stoat dev stack — Tilt + Kind
+# Ports are in the 14xxx range to avoid conflicts with other dev stacks
+# (Fray.run, execos, etc.) that may run concurrently on the same workstation.
+
+set dotenv-load := false
+
+STOAT_BACKEND := env("STOAT_BACKEND", justfile_directory() + "/../../stoat-backend")
+STOAT_FRONTEND := env("STOAT_FRONTEND", justfile_directory() + "/../../stoat-frontend")
+CLUSTER := "stoat"
+CONTEXT := "kind-stoat"
+
+# Show available commands
+default:
+    @just --list
+
+# Check prerequisites and create Kind cluster
+setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Checking prerequisites..."
+    missing=()
+    for cmd in docker kind tilt kubectl cargo pnpm; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing+=("$cmd")
+        fi
+    done
+    if [ ${#missing[@]} -ne 0 ]; then
+        echo "Missing: ${missing[*]}"
+        exit 1
+    fi
+    echo "All prerequisites found."
+    just kind-create
+
+# Start the dev stack (ensures cluster exists, then runs tilt up)
+up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
+        just kind-create
+    fi
+    kubectl config use-context {{ CONTEXT }}
+    cd {{ justfile_directory() }} && tilt up
+
+# Stop Tilt (leaves cluster intact)
+down:
+    cd {{ justfile_directory() }} && tilt down
+
+# Run frontend E2E tests against the running stack
+test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cp {{ STOAT_FRONTEND }}/packages/client/.env.e2e {{ STOAT_FRONTEND }}/packages/client/.env
+    cd {{ STOAT_FRONTEND }}
+    pnpm --filter client exec vite build
+    pnpm --filter client exec playwright test
+
+# Show cluster, pods, and tilt status
+status:
+    @echo "=== Kind clusters ==="
+    @kind get clusters 2>/dev/null || true
+    @echo ""
+    @echo "=== Pods in stoat namespace ==="
+    @kubectl --context {{ CONTEXT }} get pods -n stoat 2>/dev/null || echo "(cluster not running)"
+    @echo ""
+    @echo "=== Tilt resources ==="
+    @cd {{ justfile_directory() }} && tilt get uiresources 2>/dev/null || echo "(tilt not running)"
+
+# Tail logs for a service
+logs service:
+    kubectl --context {{ CONTEXT }} logs -n stoat -l app={{ service }} -f
+
+# Create the Kind cluster
+kind-create:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
+        echo "Cluster '{{ CLUSTER }}' already exists."
+    else
+        kind create cluster --config {{ justfile_directory() }}/kind-config.yaml
+        echo "Cluster '{{ CLUSTER }}' created."
+    fi
+
+# Delete the Kind cluster
+kind-delete:
+    kind delete cluster --name {{ CLUSTER }}
+
+# Delete Kind cluster entirely (alias for kind-delete)
+nuke: kind-delete

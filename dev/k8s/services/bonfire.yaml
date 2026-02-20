@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bonfire
+  namespace: stoat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bonfire
+  template:
+    metadata:
+      labels:
+        app: bonfire
+    spec:
+      containers:
+        - name: bonfire
+          image: stoat-bonfire:dev
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 9000
+          env:
+            - name: ROCKET_ADDRESS
+              value: "0.0.0.0"
+          volumeMounts:
+            - name: config
+              mountPath: /home/rust/src/Revolt.overrides.toml
+              subPath: Revolt.overrides.toml
+      volumes:
+        - name: config
+          configMap:
+            name: stoat-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bonfire
+  namespace: stoat
+spec:
+  type: NodePort
+  selector:
+    app: bonfire
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 30703

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: january
+  namespace: stoat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: january
+  template:
+    metadata:
+      labels:
+        app: january
+    spec:
+      containers:
+        - name: january
+          image: stoat-january:dev
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ROCKET_ADDRESS
+              value: "0.0.0.0"
+            - name: ROCKET_PORT
+              value: "8000"
+          volumeMounts:
+            - name: config
+              mountPath: /home/rust/src/Revolt.overrides.toml
+              subPath: Revolt.overrides.toml
+      volumes:
+        - name: config
+          configMap:
+            name: stoat-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: january
+  namespace: stoat
+spec:
+  type: NodePort
+  selector:
+    app: january
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30705

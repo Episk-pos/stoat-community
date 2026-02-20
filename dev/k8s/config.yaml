@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stoat-config
+  namespace: stoat
+data:
+  Revolt.overrides.toml: |
+    [database]
+    mongodb = "mongodb://mongodb.stoat.svc:27017"
+    redis = "redis://redis.stoat.svc:6379/"
+
+    [rabbit]
+    host = "rabbitmq.stoat.svc"
+
+    [hosts]
+    app = "http://localhost:5173"
+    api = "http://localhost:14702"
+    events = "ws://localhost:14703"
+    autumn = "http://localhost:14704"
+    january = "http://localhost:14705"
+    voso_legacy = ""
+    voso_legacy_ws = ""
+
+    [hosts.livekit]
+    worldwide = ""
+
+    [api]
+
+    [api.smtp]
+    host = "maildev.stoat.svc"
+    username = "smtp"
+    password = "smtp"
+    from_address = "development@stoat.chat"
+    reply_to = "support@stoat.chat"
+    port = 25
+    use_tls = false
+    use_starttls = false
+
+    [api.livekit]
+
+    [files.s3]
+    endpoint = "http://minio.stoat.svc:9000"
+    region = "minio"
+    access_key_id = "minioautumn"
+    secret_access_key = "minioautumn"
+    default_bucket = "revolt-uploads"

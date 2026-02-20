@@ -76,3 +76,81 @@ Maintainers will generally:
 4. Move accepted issues into planning/in progress
 
 Higher-quality issue submissions reduce triage turnaround time.
+
+## Dev Stack
+
+A full local development environment using **Tilt** + **Kind** lives in [`dev/`](dev/). It runs the entire Stoat backend (Delta, Bonfire, Autumn, January) and infrastructure (MongoDB, Redis, MinIO, RabbitMQ, Maildev) in a local Kubernetes cluster, with the frontend Vite dev server running natively for fast HMR.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Kind](https://kind.sigs.k8s.io/)
+- [Tilt](https://docs.tilt.dev/install.html)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Rust / Cargo](https://rustup.rs/)
+- [pnpm](https://pnpm.io/installation)
+- [just](https://github.com/casey/just)
+
+### Quick Start
+
+```bash
+cd dev/
+
+# Check prerequisites and create the Kind cluster
+just setup
+
+# Start everything (Tilt UI opens in your browser)
+just up
+```
+
+If `stoat-backend` or `stoat-frontend` aren't cloned as sibling directories, the Tilt UI will show clone buttons to set them up automatically.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | Check prerequisites, create Kind cluster |
+| `just up` | Start the full dev stack via Tilt |
+| `just down` | Stop Tilt (cluster stays intact) |
+| `just test` | Run frontend E2E tests against the stack |
+| `just status` | Show cluster, pods, and Tilt resources |
+| `just logs <service>` | Tail logs for a service (e.g., `delta`, `bonfire`) |
+| `just nuke` | Delete the Kind cluster entirely |
+
+### Ports
+
+All services use the `14xxx` range to avoid conflicts with other dev stacks (Fray.run, execos, etc.) that may run concurrently.
+
+| Port | Service |
+|------|---------|
+| 5173 | Frontend (Vite dev server, local) |
+| 14702 | Delta (API) |
+| 14703 | Bonfire (WebSocket) |
+| 14704 | Autumn (file server) |
+| 14705 | January (embed proxy) |
+| 14717 | MongoDB (debug) |
+| 14672 | RabbitMQ management UI (debug) |
+| 14080 | Maildev web UI (debug) |
+| 14009 | MinIO API (debug) |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│  Host                                           │
+│  ┌───────────────┐                              │
+│  │ Vite dev :5173│ ◄── browser                  │
+│  └───────────────┘                              │
+│                                                 │
+│  ┌─ Kind cluster (kind-stoat) ────────────────┐ │
+│  │  namespace: stoat                          │ │
+│  │                                            │ │
+│  │  delta:14702  bonfire:14703                 │ │
+│  │  autumn:14704  january:14705               │ │
+│  │                                            │ │
+│  │  redis  mongodb  minio  rabbitmq  maildev  │ │
+│  └────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────┘
+```
+
+Backend binaries are built on the host with `cargo build --release`, then packaged into thin `debian:12-slim` Docker images and loaded into Kind. This avoids slow in-container Rust compilation.

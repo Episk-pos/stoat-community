@@ -1,0 +1,22 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: stoat
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Delta (API)
+      - hostPort: 14702
+        containerPort: 30702
+        protocol: TCP
+      # Bonfire (WebSocket)
+      - hostPort: 14703
+        containerPort: 30703
+        protocol: TCP
+      # Autumn (files)
+      - hostPort: 14704
+        containerPort: 30704
+        protocol: TCP
+      # January (embeds)
+      - hostPort: 14705
+        containerPort: 30705
+        protocol: TCP
