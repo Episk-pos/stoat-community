@@ -8,6 +8,10 @@ This repository is the source of truth for:
 - 🎨 **UX Feedback**
 - 🔒 **Security Reports**
 
+## Service Status
+
+Check real-time service health at **[status.episkopos.community](https://status.episkopos.community)**.
+
 ## Where To File Issues
 Use **GitHub Issues** in this repository.
 
