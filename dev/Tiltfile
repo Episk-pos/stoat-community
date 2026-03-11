@@ -5,12 +5,16 @@ allow_k8s_contexts(['kind-stoat'])
 # ---------------------------------------------------------------------------
 config.define_string('backend_path')
 config.define_string('frontend_path')
+config.define_string('flutter_path')
+config.define_bool('prebuilt')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
 FRONTEND = cfg.get('frontend_path', os.path.join(os.getcwd(), '../../stoat-frontend'))
+FLUTTER = cfg.get('flutter_path', os.path.join(os.getcwd(), '../../stoat-flutter'))
 DOCKER_DIR = os.path.join(os.getcwd(), 'docker')
 SIBLING_DIR = os.path.join(os.getcwd(), '../..')
+PREBUILT = cfg.get('prebuilt', False)
 
 REPOS = {
     'backend': {
@@ -23,6 +27,11 @@ REPOS = {
         'clone_url': 'https://github.com/episk-pos/stoat-frontend.git',
         'dir_name': 'stoat-frontend',
     },
+    'flutter': {
+        'path': FLUTTER,
+        'clone_url': 'https://work.episkopos.community/episkopos/stoat-flutter.git',
+        'dir_name': 'stoat-flutter',
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -30,9 +39,12 @@ REPOS = {
 # ---------------------------------------------------------------------------
 has_backend = os.path.exists(os.path.join(BACKEND, 'Cargo.toml'))
 has_frontend = os.path.exists(os.path.join(FRONTEND, 'package.json'))
+has_flutter = os.path.exists(os.path.join(FLUTTER, 'pubspec.yaml'))
+
+REPO_DETECTION = {'backend': has_backend, 'frontend': has_frontend, 'flutter': has_flutter}
 
 for name, repo in REPOS.items():
-    present = has_backend if name == 'backend' else has_frontend
+    present = REPO_DETECTION.get(name, False)
     if not present:
         warn('stoat-%s not found at %s — use the "Clone stoat-%s" button in the Tilt UI to clone it.' % (name, repo['path'], name))
         local_resource(
@@ -71,7 +83,7 @@ k8s_resource('maildev', labels=['infra'],
 # ---------------------------------------------------------------------------
 # Backend services — host-built binaries + thin Docker images
 # ---------------------------------------------------------------------------
-if has_backend:
+if has_backend or PREBUILT:
     SERVICES = {
         'delta':   {'crate': 'revolt-delta',   'binary': 'revolt-delta'},
         'bonfire': {'crate': 'revolt-bonfire',  'binary': 'revolt-bonfire'},
@@ -79,35 +91,36 @@ if has_backend:
         'january': {'crate': 'revolt-january',  'binary': 'revolt-january'},
     }
 
-    # Single cargo build for all backend crates (avoids Cargo lock contention)
-    local_resource(
-        'backend-build',
-        cmd='cd %s && cargo build --release %s' % (
-            BACKEND,
-            ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
-        ),
-        deps=[os.path.join(BACKEND, 'crates')],
-        labels=['build'],
-    )
-
-    for name, svc in SERVICES.items():
-        image_tag = 'stoat-%s:dev' % name
-        dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
-
-        # Build thin Docker image via staging dir (avoids backend .dockerignore)
+    if not PREBUILT:
+        # Single cargo build for all backend crates (avoids Cargo lock contention)
         local_resource(
-            '%s-image' % name,
-            cmd=' && '.join([
-                'STAGE=$(mktemp -d)',
-                'cp %s/target/release/%s $STAGE/' % (BACKEND, svc['binary']),
-                'cp %s $STAGE/Dockerfile' % dockerfile,
-                'docker build -t %s $STAGE' % image_tag,
-                'kind load docker-image %s --name stoat' % image_tag,
-                'rm -rf $STAGE',
-            ]),
-            resource_deps=['backend-build'],
+            'backend-build',
+            cmd='cd %s && cargo build --release %s' % (
+                BACKEND,
+                ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
+            ),
+            deps=[os.path.join(BACKEND, 'crates')],
             labels=['build'],
         )
+
+        for name, svc in SERVICES.items():
+            image_tag = 'stoat-%s:dev' % name
+            dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
+
+            # Build thin Docker image via staging dir (avoids backend .dockerignore)
+            local_resource(
+                '%s-image' % name,
+                cmd=' && '.join([
+                    'STAGE=$(mktemp -d)',
+                    'cp %s/target/release/%s $STAGE/' % (BACKEND, svc['binary']),
+                    'cp %s $STAGE/Dockerfile' % dockerfile,
+                    'docker build -t %s $STAGE' % image_tag,
+                    'kind load docker-image %s --name stoat' % image_tag,
+                    'rm -rf $STAGE',
+                ]),
+                resource_deps=['backend-build'],
+                labels=['build'],
+            )
 
     # Apply service manifests
     k8s_yaml('k8s/services/delta.yaml')
@@ -116,14 +129,15 @@ if has_backend:
     k8s_yaml('k8s/services/january.yaml')
 
     # Wire up k8s resources with port forwards and dependencies
+    image_dep = lambda name: ['%s-image' % name] if not PREBUILT else []
     k8s_resource('delta', labels=['services'],
-                 resource_deps=['delta-image', 'redis', 'mongodb', 'minio-init', 'rabbitmq'])
+                 resource_deps=image_dep('delta') + ['redis', 'mongodb', 'minio-init', 'rabbitmq'])
     k8s_resource('bonfire', labels=['services'],
-                 resource_deps=['bonfire-image', 'redis', 'mongodb', 'rabbitmq'])
+                 resource_deps=image_dep('bonfire') + ['redis', 'mongodb', 'rabbitmq'])
     k8s_resource('autumn', labels=['services'],
-                 resource_deps=['autumn-image', 'redis', 'mongodb', 'minio-init'])
+                 resource_deps=image_dep('autumn') + ['redis', 'mongodb', 'minio-init'])
     k8s_resource('january', labels=['services'],
-                 resource_deps=['january-image', 'redis', 'mongodb'])
+                 resource_deps=image_dep('january') + ['redis', 'mongodb'])
 
     # Seed data — test users, servers, channels, messages
     SEED_DIR = os.path.join(os.getcwd(), 'seed')
@@ -156,4 +170,17 @@ if has_frontend:
         labels=['frontend'],
         resource_deps=frontend_deps,
         links=['http://localhost:5173'],
+    )
+
+# ---------------------------------------------------------------------------
+# Flutter frontend — local dev server (web target)
+# ---------------------------------------------------------------------------
+if has_flutter:
+    flutter_deps = ['delta'] if has_backend else []
+    local_resource(
+        'flutter-dev',
+        serve_cmd='cd %s/packages/app && flutter run -d chrome --web-port=5174' % FLUTTER,
+        labels=['frontend'],
+        resource_deps=flutter_deps,
+        links=['http://localhost:5174'],
     )
