@@ -1,6 +1,6 @@
-FROM debian:12-slim
-RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+FROM archlinux:base
+RUN pacman -Sy --noconfirm ca-certificates openssl && pacman -Scc --noconfirm
 WORKDIR /home/rust/src
-COPY target/release/revolt-autumn /usr/local/bin/server
+COPY revolt-autumn /usr/local/bin/server
 ENV ROCKET_ADDRESS=0.0.0.0
 CMD ["server"]

@@ -18,10 +18,7 @@ spec:
           image: stoat-bonfire:dev
           imagePullPolicy: Never
           ports:
-            - containerPort: 9000
-          env:
-            - name: ROCKET_ADDRESS
-              value: "0.0.0.0"
+            - containerPort: 14703
           volumeMounts:
             - name: config
               mountPath: /home/rust/src/Revolt.overrides.toml
@@ -41,6 +38,6 @@ spec:
   selector:
     app: bonfire
   ports:
-    - port: 9000
-      targetPort: 9000
+    - port: 14703
+      targetPort: 14703
       nodePort: 30703

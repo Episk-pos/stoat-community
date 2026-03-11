@@ -16,7 +16,7 @@ spec:
       containers:
         - name: minio
           image: minio/minio
-          command: ["server", "/data"]
+          command: ["minio", "server", "/data"]
           env:
             - name: MINIO_ROOT_USER
               value: "minioautumn"

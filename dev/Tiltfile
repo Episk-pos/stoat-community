@@ -3,8 +3,8 @@ allow_k8s_contexts(['kind-stoat'])
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-config.define_string('backend_path', args=True)
-config.define_string('frontend_path', args=True)
+config.define_string('backend_path')
+config.define_string('frontend_path')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
@@ -39,20 +39,6 @@ for name, repo in REPOS.items():
             'clone-stoat-%s' % name,
             cmd='echo "stoat-%s is not cloned yet. Click the Clone button to set it up."' % name,
             labels=['setup'],
-        )
-        cmd_button(
-            'Clone stoat-%s' % name,
-            argv=[
-                'sh', '-c',
-                'git clone %s %s && echo "Cloned stoat-%s successfully."' % (
-                    repo['clone_url'],
-                    os.path.join(SIBLING_DIR, repo['dir_name']),
-                    name,
-                ),
-            ],
-            resource='clone-stoat-%s' % name,
-            icon_name='cloud_download',
-            text='Clone stoat-%s' % name,
         )
 
 # ---------------------------------------------------------------------------
@@ -93,26 +79,33 @@ if has_backend:
         'january': {'crate': 'revolt-january',  'binary': 'revolt-january'},
     }
 
+    # Single cargo build for all backend crates (avoids Cargo lock contention)
+    local_resource(
+        'backend-build',
+        cmd='cd %s && cargo build --release %s' % (
+            BACKEND,
+            ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
+        ),
+        deps=[os.path.join(BACKEND, 'crates')],
+        labels=['build'],
+    )
+
     for name, svc in SERVICES.items():
         image_tag = 'stoat-%s:dev' % name
         dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
 
-        # 1) Build the Rust binary on the host
-        local_resource(
-            '%s-build' % name,
-            cmd='cd %s && cargo build --release -p %s' % (BACKEND, svc['crate']),
-            deps=[os.path.join(BACKEND, 'crates')],
-            labels=['build'],
-        )
-
-        # 2) Build thin Docker image and load into Kind
+        # Build thin Docker image via staging dir (avoids backend .dockerignore)
         local_resource(
             '%s-image' % name,
             cmd=' && '.join([
-                'docker build -f %s -t %s %s' % (dockerfile, image_tag, BACKEND),
+                'STAGE=$(mktemp -d)',
+                'cp %s/target/release/%s $STAGE/' % (BACKEND, svc['binary']),
+                'cp %s $STAGE/Dockerfile' % dockerfile,
+                'docker build -t %s $STAGE' % image_tag,
                 'kind load docker-image %s --name stoat' % image_tag,
+                'rm -rf $STAGE',
             ]),
-            resource_deps=['%s-build' % name],
+            resource_deps=['backend-build'],
             labels=['build'],
         )
 
@@ -124,17 +117,33 @@ if has_backend:
 
     # Wire up k8s resources with port forwards and dependencies
     k8s_resource('delta', labels=['services'],
-                 port_forwards=['14702:8000'],
                  resource_deps=['delta-image', 'redis', 'mongodb', 'minio-init', 'rabbitmq'])
     k8s_resource('bonfire', labels=['services'],
-                 port_forwards=['14703:9000'],
                  resource_deps=['bonfire-image', 'redis', 'mongodb', 'rabbitmq'])
     k8s_resource('autumn', labels=['services'],
-                 port_forwards=['14704:8000'],
                  resource_deps=['autumn-image', 'redis', 'mongodb', 'minio-init'])
     k8s_resource('january', labels=['services'],
-                 port_forwards=['14705:8000'],
                  resource_deps=['january-image', 'redis', 'mongodb'])
+
+    # Seed data — test users, servers, channels, messages
+    SEED_DIR = os.path.join(os.getcwd(), 'seed')
+    local_resource(
+        'seed-image',
+        cmd=' && '.join([
+            'STAGE=$(mktemp -d)',
+            'cp %s/seed.py $STAGE/' % SEED_DIR,
+            'cp %s/Dockerfile.seed $STAGE/Dockerfile' % DOCKER_DIR,
+            'docker build -t stoat-seed:dev $STAGE',
+            'kind load docker-image stoat-seed:dev --name stoat',
+            'rm -rf $STAGE',
+        ]),
+        deps=[SEED_DIR, os.path.join(DOCKER_DIR, 'Dockerfile.seed')],
+        labels=['seed'],
+    )
+
+    k8s_yaml('k8s/seed.yaml')
+    k8s_resource('seed', labels=['seed'],
+                 resource_deps=['seed-image', 'delta', 'mongodb'])
 
 # ---------------------------------------------------------------------------
 # Frontend — local Vite dev server (not containerised)
@@ -143,7 +152,7 @@ if has_frontend:
     frontend_deps = ['delta'] if has_backend else []
     local_resource(
         'frontend-dev',
-        serve_cmd='cd %s && pnpm dev' % FRONTEND,
+        serve_cmd='cd %s/packages/client && pnpm exec vite --host' % FRONTEND,
         labels=['frontend'],
         resource_deps=frontend_deps,
         links=['http://localhost:5173'],

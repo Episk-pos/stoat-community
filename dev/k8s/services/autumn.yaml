@@ -18,12 +18,7 @@ spec:
           image: stoat-autumn:dev
           imagePullPolicy: Never
           ports:
-            - containerPort: 8000
-          env:
-            - name: ROCKET_ADDRESS
-              value: "0.0.0.0"
-            - name: ROCKET_PORT
-              value: "8000"
+            - containerPort: 14704
           volumeMounts:
             - name: config
               mountPath: /home/rust/src/Revolt.overrides.toml
@@ -43,6 +38,6 @@ spec:
   selector:
     app: autumn
   ports:
-    - port: 8000
-      targetPort: 8000
+    - port: 14704
+      targetPort: 14704
       nodePort: 30704

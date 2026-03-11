@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed
+  namespace: stoat
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 30
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed
+          image: stoat-seed:dev
+          imagePullPolicy: Never
+          env:
+            - name: DELTA_URL
+              value: "http://delta.stoat.svc:14702"
+            - name: MONGO_URI
+              value: "mongodb://mongodb.stoat.svc:27017"

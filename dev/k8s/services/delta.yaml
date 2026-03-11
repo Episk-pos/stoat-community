@@ -18,12 +18,7 @@ spec:
           image: stoat-delta:dev
           imagePullPolicy: Never
           ports:
-            - containerPort: 8000
-          env:
-            - name: ROCKET_ADDRESS
-              value: "0.0.0.0"
-            - name: ROCKET_PORT
-              value: "8000"
+            - containerPort: 14702
           volumeMounts:
             - name: config
               mountPath: /home/rust/src/Revolt.overrides.toml
@@ -43,6 +38,6 @@ spec:
   selector:
     app: delta
   ports:
-    - port: 8000
-      targetPort: 8000
+    - port: 14702
+      targetPort: 14702
       nodePort: 30702
