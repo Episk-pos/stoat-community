@@ -1,5 +1,3 @@
-allow_k8s_contexts(['kind-stoat'])
-
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -7,6 +5,7 @@ config.define_string('backend_path')
 config.define_string('frontend_path')
 config.define_string('flutter_path')
 config.define_bool('prebuilt')
+config.define_bool('compose')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
@@ -15,6 +14,7 @@ FLUTTER = cfg.get('flutter_path', os.path.join(os.getcwd(), '../../stoat-flutter
 DOCKER_DIR = os.path.join(os.getcwd(), 'docker')
 SIBLING_DIR = os.path.join(os.getcwd(), '../..')
 PREBUILT = cfg.get('prebuilt', False)
+COMPOSE = cfg.get('compose', False)
 
 REPOS = {
     'backend': {
@@ -53,111 +53,159 @@ for name, repo in REPOS.items():
             labels=['setup'],
         )
 
-# ---------------------------------------------------------------------------
-# Namespace + Config
-# ---------------------------------------------------------------------------
-k8s_yaml('k8s/namespace.yaml')
-k8s_yaml('k8s/config.yaml')
+if COMPOSE:
+    # -----------------------------------------------------------------------
+    # Docker Compose mode
+    # -----------------------------------------------------------------------
+    docker_compose(os.path.join(os.getcwd(), 'docker-compose.yml'))
 
-# ---------------------------------------------------------------------------
-# Infrastructure (always deployed — useful even without app repos)
-# ---------------------------------------------------------------------------
-k8s_yaml('k8s/infra/redis.yaml')
-k8s_yaml('k8s/infra/mongodb.yaml')
-k8s_yaml('k8s/infra/minio.yaml')
-k8s_yaml('k8s/infra/rabbitmq.yaml')
-k8s_yaml('k8s/infra/maildev.yaml')
+    # Label infrastructure services
+    dc_resource('redis', labels=['infra'])
+    dc_resource('mongodb', labels=['infra'])
+    dc_resource('rabbitmq', labels=['infra'])
+    dc_resource('maildev', labels=['infra'])
+    dc_resource('minio', labels=['infra'])
+    dc_resource('minio-init', labels=['infra'])
 
-k8s_resource('redis', labels=['infra'])
-k8s_resource('mongodb', labels=['infra'],
-             port_forwards=['14717:27017'])
-k8s_resource('minio', labels=['infra'],
-             port_forwards=['14009:9000'])
-k8s_resource('minio-init', labels=['infra'],
-             resource_deps=['minio'])
-k8s_resource('rabbitmq', labels=['infra'],
-             port_forwards=['14672:15672'])
-k8s_resource('maildev', labels=['infra'],
-             port_forwards=['14080:8080'])
+    # Backend services (only if backend available)
+    if has_backend or PREBUILT:
+        if not PREBUILT:
+            # Build backend binaries and stage into docker/ for compose build
+            SERVICES = {
+                'delta':   {'crate': 'revolt-delta',   'binary': 'revolt-delta'},
+                'bonfire': {'crate': 'revolt-bonfire',  'binary': 'revolt-bonfire'},
+                'autumn':  {'crate': 'revolt-autumn',   'binary': 'revolt-autumn'},
+                'january': {'crate': 'revolt-january',  'binary': 'revolt-january'},
+            }
 
-# ---------------------------------------------------------------------------
-# Backend services — host-built binaries + thin Docker images
-# ---------------------------------------------------------------------------
-if has_backend or PREBUILT:
-    SERVICES = {
-        'delta':   {'crate': 'revolt-delta',   'binary': 'revolt-delta'},
-        'bonfire': {'crate': 'revolt-bonfire',  'binary': 'revolt-bonfire'},
-        'autumn':  {'crate': 'revolt-autumn',   'binary': 'revolt-autumn'},
-        'january': {'crate': 'revolt-january',  'binary': 'revolt-january'},
-    }
-
-    if not PREBUILT:
-        # Single cargo build for all backend crates (avoids Cargo lock contention)
-        local_resource(
-            'backend-build',
-            cmd='cd %s && cargo build --release %s' % (
-                BACKEND,
-                ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
-            ),
-            deps=[os.path.join(BACKEND, 'crates')],
-            labels=['build'],
-        )
-
-        for name, svc in SERVICES.items():
-            image_tag = 'stoat-%s:dev' % name
-            dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
-
-            # Build thin Docker image via staging dir (avoids backend .dockerignore)
             local_resource(
-                '%s-image' % name,
-                cmd=' && '.join([
-                    'STAGE=$(mktemp -d)',
-                    'cp %s/target/release/%s $STAGE/' % (BACKEND, svc['binary']),
-                    'cp %s $STAGE/Dockerfile' % dockerfile,
-                    'docker build -t %s $STAGE' % image_tag,
-                    'kind load docker-image %s --name stoat' % image_tag,
-                    'rm -rf $STAGE',
-                ]),
-                resource_deps=['backend-build'],
+                'backend-build',
+                cmd='cd %s && cargo build --release %s && %s' % (
+                    BACKEND,
+                    ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
+                    ' && '.join(['cp %s/target/release/%s %s/' % (BACKEND, svc['binary'], DOCKER_DIR) for svc in SERVICES.values()]),
+                ),
+                deps=[os.path.join(BACKEND, 'crates')],
                 labels=['build'],
             )
 
-    # Apply service manifests
-    k8s_yaml('k8s/services/delta.yaml')
-    k8s_yaml('k8s/services/bonfire.yaml')
-    k8s_yaml('k8s/services/autumn.yaml')
-    k8s_yaml('k8s/services/january.yaml')
+        dc_resource('delta', labels=['services'])
+        dc_resource('bonfire', labels=['services'])
+        dc_resource('autumn', labels=['services'])
+        dc_resource('january', labels=['services'])
+        dc_resource('seed', labels=['seed'])
 
-    # Wire up k8s resources with port forwards and dependencies
-    image_dep = lambda name: ['%s-image' % name] if not PREBUILT else []
-    k8s_resource('delta', labels=['services'],
-                 resource_deps=image_dep('delta') + ['redis', 'mongodb', 'minio-init', 'rabbitmq'])
-    k8s_resource('bonfire', labels=['services'],
-                 resource_deps=image_dep('bonfire') + ['redis', 'mongodb', 'rabbitmq'])
-    k8s_resource('autumn', labels=['services'],
-                 resource_deps=image_dep('autumn') + ['redis', 'mongodb', 'minio-init'])
-    k8s_resource('january', labels=['services'],
-                 resource_deps=image_dep('january') + ['redis', 'mongodb'])
+else:
+    # -----------------------------------------------------------------------
+    # Kubernetes mode (default)
+    # -----------------------------------------------------------------------
+    allow_k8s_contexts(['kind-stoat'])
 
-    # Seed data — test users, servers, channels, messages
-    SEED_DIR = os.path.join(os.getcwd(), 'seed')
-    local_resource(
-        'seed-image',
-        cmd=' && '.join([
-            'STAGE=$(mktemp -d)',
-            'cp %s/seed.py $STAGE/' % SEED_DIR,
-            'cp %s/Dockerfile.seed $STAGE/Dockerfile' % DOCKER_DIR,
-            'docker build -t stoat-seed:dev $STAGE',
-            'kind load docker-image stoat-seed:dev --name stoat',
-            'rm -rf $STAGE',
-        ]),
-        deps=[SEED_DIR, os.path.join(DOCKER_DIR, 'Dockerfile.seed')],
-        labels=['seed'],
-    )
+    # -------------------------------------------------------------------
+    # Namespace + Config
+    # -------------------------------------------------------------------
+    k8s_yaml('k8s/namespace.yaml')
+    k8s_yaml('k8s/config.yaml')
 
-    k8s_yaml('k8s/seed.yaml')
-    k8s_resource('seed', labels=['seed'],
-                 resource_deps=['seed-image', 'delta', 'mongodb'])
+    # -------------------------------------------------------------------
+    # Infrastructure (always deployed — useful even without app repos)
+    # -------------------------------------------------------------------
+    k8s_yaml('k8s/infra/redis.yaml')
+    k8s_yaml('k8s/infra/mongodb.yaml')
+    k8s_yaml('k8s/infra/minio.yaml')
+    k8s_yaml('k8s/infra/rabbitmq.yaml')
+    k8s_yaml('k8s/infra/maildev.yaml')
+
+    k8s_resource('redis', labels=['infra'])
+    k8s_resource('mongodb', labels=['infra'],
+                 port_forwards=['14717:27017'])
+    k8s_resource('minio', labels=['infra'],
+                 port_forwards=['14009:9000'])
+    k8s_resource('minio-init', labels=['infra'],
+                 resource_deps=['minio'])
+    k8s_resource('rabbitmq', labels=['infra'],
+                 port_forwards=['14672:15672'])
+    k8s_resource('maildev', labels=['infra'],
+                 port_forwards=['14080:8080'])
+
+    # -------------------------------------------------------------------
+    # Backend services — host-built binaries + thin Docker images
+    # -------------------------------------------------------------------
+    if has_backend or PREBUILT:
+        SERVICES = {
+            'delta':   {'crate': 'revolt-delta',   'binary': 'revolt-delta'},
+            'bonfire': {'crate': 'revolt-bonfire',  'binary': 'revolt-bonfire'},
+            'autumn':  {'crate': 'revolt-autumn',   'binary': 'revolt-autumn'},
+            'january': {'crate': 'revolt-january',  'binary': 'revolt-january'},
+        }
+
+        if not PREBUILT:
+            # Single cargo build for all backend crates (avoids Cargo lock contention)
+            local_resource(
+                'backend-build',
+                cmd='cd %s && cargo build --release %s' % (
+                    BACKEND,
+                    ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
+                ),
+                deps=[os.path.join(BACKEND, 'crates')],
+                labels=['build'],
+            )
+
+            for name, svc in SERVICES.items():
+                image_tag = 'stoat-%s:dev' % name
+                dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
+
+                # Build thin Docker image via staging dir (avoids backend .dockerignore)
+                local_resource(
+                    '%s-image' % name,
+                    cmd=' && '.join([
+                        'STAGE=$(mktemp -d)',
+                        'cp %s/target/release/%s $STAGE/' % (BACKEND, svc['binary']),
+                        'cp %s $STAGE/Dockerfile' % dockerfile,
+                        'docker build -t %s $STAGE' % image_tag,
+                        'kind load docker-image %s --name stoat' % image_tag,
+                        'rm -rf $STAGE',
+                    ]),
+                    resource_deps=['backend-build'],
+                    labels=['build'],
+                )
+
+        # Apply service manifests
+        k8s_yaml('k8s/services/delta.yaml')
+        k8s_yaml('k8s/services/bonfire.yaml')
+        k8s_yaml('k8s/services/autumn.yaml')
+        k8s_yaml('k8s/services/january.yaml')
+
+        # Wire up k8s resources with port forwards and dependencies
+        image_dep = lambda name: ['%s-image' % name] if not PREBUILT else []
+        k8s_resource('delta', labels=['services'],
+                     resource_deps=image_dep('delta') + ['redis', 'mongodb', 'minio-init', 'rabbitmq'])
+        k8s_resource('bonfire', labels=['services'],
+                     resource_deps=image_dep('bonfire') + ['redis', 'mongodb', 'rabbitmq'])
+        k8s_resource('autumn', labels=['services'],
+                     resource_deps=image_dep('autumn') + ['redis', 'mongodb', 'minio-init'])
+        k8s_resource('january', labels=['services'],
+                     resource_deps=image_dep('january') + ['redis', 'mongodb'])
+
+        # Seed data — test users, servers, channels, messages
+        SEED_DIR = os.path.join(os.getcwd(), 'seed')
+        local_resource(
+            'seed-image',
+            cmd=' && '.join([
+                'STAGE=$(mktemp -d)',
+                'cp %s/seed.py $STAGE/' % SEED_DIR,
+                'cp %s/Dockerfile.seed $STAGE/Dockerfile' % DOCKER_DIR,
+                'docker build -t stoat-seed:dev $STAGE',
+                'kind load docker-image stoat-seed:dev --name stoat',
+                'rm -rf $STAGE',
+            ]),
+            deps=[SEED_DIR, os.path.join(DOCKER_DIR, 'Dockerfile.seed')],
+            labels=['seed'],
+        )
+
+        k8s_yaml('k8s/seed.yaml')
+        k8s_resource('seed', labels=['seed'],
+                     resource_deps=['seed-image', 'delta', 'mongodb'])
 
 # ---------------------------------------------------------------------------
 # Frontend — local Vite dev server (not containerised)

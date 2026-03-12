@@ -1,0 +1,174 @@
+# Stoat dev stack — Docker Compose equivalent of the K8s/Tilt setup.
+#
+# Prerequisites:
+#   Build the backend binaries and copy them into docker/:
+#     cd ../../stoat-backend && cargo build --release
+#     cp target/release/revolt-{delta,bonfire,autumn,january} ../stoat-community/dev/docker/
+#
+# Usage:
+#   docker compose up -d              # start infra + app services
+#   docker compose --profile seed up  # run seed job (creates test data)
+
+volumes:
+  mongodb-data:
+  minio-data:
+
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------------------
+  redis:
+    image: eqalpha/keydb
+    ports:
+      - "6379:6379"
+
+  mongodb:
+    image: mongo
+    ports:
+      - "14717:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "14672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbituser
+      RABBITMQ_DEFAULT_PASS: rabbitpass
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  maildev:
+    image: maildev/maildev
+    ports:
+      - "14025:25"
+      - "14080:8080"
+    environment:
+      MAILDEV_SMTP_PORT: "25"
+      MAILDEV_WEB_PORT: "8080"
+      MAILDEV_INCOMING_USER: smtp
+      MAILDEV_INCOMING_PASS: smtp
+
+  minio:
+    image: minio/minio
+    command: ["minio", "server", "/data"]
+    ports:
+      - "14009:9000"
+      - "14001:9001"
+    environment:
+      MINIO_ROOT_USER: minioautumn
+      MINIO_ROOT_PASSWORD: minioautumn
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        mc alias set stoat http://minio:9000 minioautumn minioautumn &&
+        mc mb --ignore-existing stoat/revolt-uploads
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Application services
+  # ---------------------------------------------------------------------------
+  delta:
+    image: stoat-delta:dev
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.delta
+    ports:
+      - "14702:14702"
+    volumes:
+      - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+    depends_on:
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  bonfire:
+    image: stoat-bonfire:dev
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.bonfire
+    ports:
+      - "14703:14703"
+    volumes:
+      - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+    depends_on:
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  autumn:
+    image: stoat-autumn:dev
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.autumn
+    ports:
+      - "14704:14704"
+    volumes:
+      - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+    depends_on:
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+
+  january:
+    image: stoat-january:dev
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.january
+    ports:
+      - "14705:14705"
+    volumes:
+      - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+    depends_on:
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # Seed — only runs with: docker compose --profile seed up
+  # ---------------------------------------------------------------------------
+  seed:
+    image: stoat-seed:dev
+    build:
+      context: ./seed
+      dockerfile: ../docker/Dockerfile.seed
+    environment:
+      DELTA_URL: http://delta:14702
+      MONGO_URI: mongodb://mongodb:27017
+    depends_on:
+      delta:
+        condition: service_started
+    restart: "no"
+    profiles:
+      - seed

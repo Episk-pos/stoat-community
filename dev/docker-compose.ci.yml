@@ -1,0 +1,88 @@
+# CI override — use with: docker compose -f docker-compose.yml -f docker-compose.ci.yml up
+#
+# Strips management UI ports, adds resource limits, and sets restart: "no"
+# for all services. Pre-build and tag images before running so Compose uses
+# them directly (the `image:` key takes precedence when the image exists).
+
+services:
+  redis:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  mongodb:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      # management UI (15672) removed
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  maildev:
+    ports:
+      - "14025:25"
+      # web UI (8080) removed
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  minio:
+    ports:
+      - "14009:9000"
+      # console UI (9001) removed
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  minio-init:
+    restart: "no"
+
+  delta:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  bonfire:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  autumn:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  january:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  seed:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128M

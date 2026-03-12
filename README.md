@@ -83,28 +83,48 @@ Higher-quality issue submissions reduce triage turnaround time.
 
 ## Dev Stack
 
-A full local development environment using **Tilt** + **Kind** lives in [`dev/`](dev/). It runs the entire Stoat backend (Delta, Bonfire, Autumn, January) and infrastructure (MongoDB, Redis, MinIO, RabbitMQ, Maildev) in a local Kubernetes cluster, with the frontend Vite dev server running natively for fast HMR.
+A full local development environment lives in [`dev/`](dev/). It runs the entire Stoat backend (Delta, Bonfire, Autumn, January) and infrastructure (MongoDB, Redis, MinIO, RabbitMQ, Maildev) locally, with the frontend Vite dev server running natively for fast HMR.
+
+**Two modes are available:**
+
+- **Kind/K8s** (default) — Full Kubernetes cluster via Kind + Tilt. Best for production-parity testing.
+- **Docker Compose** — Lighter alternative, no Kind cluster needed. Good for quick iteration and CI.
+
+Both modes use the same ports, same images, and same Tilt UI.
 
 ### Prerequisites
 
+**All modes:**
 - [Docker](https://docs.docker.com/get-docker/)
+- [just](https://github.com/casey/just)
+- [Rust / Cargo](https://rustup.rs/) (or use `--prebuilt` to skip)
+
+**Kind/K8s mode (adds):**
 - [Kind](https://kind.sigs.k8s.io/)
 - [Tilt](https://docs.tilt.dev/install.html)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Rust / Cargo](https://rustup.rs/)
-- [pnpm](https://pnpm.io/installation)
-- [just](https://github.com/casey/just)
+
+**Compose via Tilt (adds):**
+- [Tilt](https://docs.tilt.dev/install.html)
+
+**Plain Compose mode:** Docker only (no Tilt, Kind, or kubectl needed).
 
 ### Quick Start
 
 ```bash
 cd dev/
 
-# Check prerequisites and create the Kind cluster
-just setup
+# --- Kind/K8s mode (default) ---
+just setup    # Check prerequisites, create Kind cluster
+just up       # Start everything (Tilt UI opens)
 
-# Start everything (Tilt UI opens in your browser)
-just up
+# --- Docker Compose via Tilt ---
+just up-compose          # Same Tilt UI, Docker Compose backend
+
+# --- Plain Docker Compose (no Tilt) ---
+just compose-up          # Start all services
+just compose-seed        # Seed test data
+just compose-down        # Stop everything
 ```
 
 If `stoat-backend` or `stoat-frontend` aren't cloned as sibling directories, the Tilt UI will show clone buttons to set them up automatically.
@@ -113,13 +133,22 @@ If `stoat-backend` or `stoat-frontend` aren't cloned as sibling directories, the
 
 | Command | Description |
 |---------|-------------|
+| **Kind/K8s mode** | |
 | `just setup` | Check prerequisites, create Kind cluster |
-| `just up` | Start the full dev stack via Tilt |
+| `just up` | Start the full dev stack via Tilt + Kind |
+| `just up-prebuilt` | Start with pre-built images (no Rust needed) |
 | `just down` | Stop Tilt (cluster stays intact) |
+| `just nuke` | Delete the Kind cluster entirely |
+| **Docker Compose mode** | |
+| `just up-compose` | Start dev stack via Tilt + Compose |
+| `just up-compose-prebuilt` | Compose + pre-built images |
+| `just compose-up` | Plain `docker compose up` (no Tilt) |
+| `just compose-down` | Stop Compose services |
+| `just compose-seed` | Seed test data (Compose mode) |
+| **Shared** | |
 | `just test` | Run frontend E2E tests against the stack |
 | `just status` | Show cluster, pods, and Tilt resources |
-| `just logs <service>` | Tail logs for a service (e.g., `delta`, `bonfire`) |
-| `just nuke` | Delete the Kind cluster entirely |
+| `just logs <service>` | Tail logs for a service (e.g., `delta`) |
 
 ### Ports
 
@@ -128,6 +157,7 @@ All services use the `14xxx` range to avoid conflicts with other dev stacks (Fra
 | Port | Service |
 |------|---------|
 | 5173 | Frontend (Vite dev server, local) |
+| 5174 | Flutter frontend (web, local) |
 | 14702 | Delta (API) |
 | 14703 | Bonfire (WebSocket) |
 | 14704 | Autumn (file server) |
@@ -136,25 +166,34 @@ All services use the `14xxx` range to avoid conflicts with other dev stacks (Fra
 | 14672 | RabbitMQ management UI (debug) |
 | 14080 | Maildev web UI (debug) |
 | 14009 | MinIO API (debug) |
+| 14001 | MinIO console (Compose only) |
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
 │  Host                                           │
-│  ┌───────────────┐                              │
-│  │ Vite dev :5173│ ◄── browser                  │
-│  └───────────────┘                              │
+│  ┌───────────────┐  ┌──────────────────┐        │
+│  │ Vite dev :5173│  │ Flutter dev :5174│        │
+│  └───────────────┘  └──────────────────┘        │
 │                                                 │
 │  ┌─ Kind cluster (kind-stoat) ────────────────┐ │
 │  │  namespace: stoat                          │ │
-│  │                                            │ │
-│  │  delta:14702  bonfire:14703                 │ │
+│  │                                            │ │    Kind/K8s
+│  │  delta:14702  bonfire:14703                │ │      mode
 │  │  autumn:14704  january:14705               │ │
 │  │                                            │ │
 │  │  redis  mongodb  minio  rabbitmq  maildev  │ │
 │  └────────────────────────────────────────────┘ │
+│                  — or —                         │
+│  ┌─ Docker Compose ──────────────────────────┐  │
+│  │                                           │  │
+│  │  delta:14702  bonfire:14703               │  │    Compose
+│  │  autumn:14704  january:14705              │  │      mode
+│  │                                           │  │
+│  │  redis  mongodb  minio  rabbitmq  maildev │  │
+│  └───────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────┘
 ```
 
-Backend binaries are built on the host with `cargo build --release`, then packaged into thin `debian:12-slim` Docker images and loaded into Kind. This avoids slow in-container Rust compilation.
+Backend binaries are built on the host with `cargo build --release`, then packaged into thin Docker images. In Kind mode, images are loaded into the cluster via `kind load`. In Compose mode, images are built directly by `docker compose build`.

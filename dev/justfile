@@ -1,6 +1,11 @@
-# Stoat dev stack — Tilt + Kind
+# Stoat dev stack — Tilt + Kind (or Docker Compose)
 # Ports are in the 14xxx range to avoid conflicts with other dev stacks
 # (Fray.run, execos, etc.) that may run concurrently on the same workstation.
+#
+# Two modes:
+#   1. Kind/K8s (default): `just up` — full K8s cluster via Kind + Tilt
+#   2. Docker Compose:     `just up-compose` — lighter, no Kind cluster needed
+#      Or without Tilt:    `just compose-up` — plain docker compose
 
 set dotenv-load := false
 
@@ -14,6 +19,8 @@ default:
     @just --list
 
 # Check prerequisites and create Kind cluster
+# Note: Docker Compose mode (just up-compose / just compose-up) only requires
+# docker (and tilt for up-compose). The full check below is for Kind/K8s mode.
 setup:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -97,6 +104,30 @@ up-prebuilt: pull-images
     fi
     kubectl config use-context {{ CONTEXT }}
     cd {{ justfile_directory() }} && tilt up -- --prebuilt
+
+# --- Docker Compose mode ---
+
+# Start dev stack with Docker Compose (no Kind cluster needed)
+up-compose:
+    cd {{ justfile_directory() }} && tilt up -- --compose
+
+# Start dev stack with Docker Compose + pre-built images
+up-compose-prebuilt: pull-images
+    cd {{ justfile_directory() }} && tilt up -- --compose --prebuilt
+
+# Start services directly with docker compose (without Tilt)
+compose-up:
+    cd {{ justfile_directory() }} && docker compose up -d
+
+# Stop services started with docker compose
+compose-down:
+    cd {{ justfile_directory() }} && docker compose down
+
+# Seed test data (compose mode)
+compose-seed:
+    cd {{ justfile_directory() }} && docker compose --profile seed up seed
+
+# --- Cleanup ---
 
 # Delete Kind cluster entirely (alias for kind-delete)
 nuke: kind-delete
