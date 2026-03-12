@@ -1,0 +1,13 @@
+# Overlay for pre-built registry images: bakes Revolt config into the image.
+# This avoids bind-mount issues with distroless containers that run as nonroot.
+#
+# Usage (via docker-compose.yml):
+#   build:
+#     context: .
+#     dockerfile: docker/Dockerfile.compose-overlay
+#     args:
+#       BASE_IMAGE: stoat-delta:dev
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+COPY config/Revolt.compose.toml /Revolt.overrides.toml

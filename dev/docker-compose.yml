@@ -1,9 +1,13 @@
 # Stoat dev stack — Docker Compose equivalent of the K8s/Tilt setup.
 #
-# Prerequisites:
+# Prerequisites (local dev build):
 #   Build the backend binaries and copy them into docker/:
 #     cd ../../stoat-backend && cargo build --release
 #     cp target/release/revolt-{delta,bonfire,autumn,january} ../stoat-community/dev/docker/
+#
+# Prerequisites (pre-built images):
+#   ./scripts/pull-images.sh latest
+#   docker compose build   # re-builds with config overlay
 #
 # Usage:
 #   docker compose up -d              # start infra + app services
@@ -12,6 +16,11 @@
 volumes:
   mongodb-data:
   minio-data:
+
+# Shared build config for app services: overlay Revolt config onto the base image
+x-app-build: &app-build
+  context: .
+  dockerfile: docker/Dockerfile.compose-overlay
 
 services:
   # ---------------------------------------------------------------------------
@@ -88,15 +97,12 @@ services:
   # Application services
   # ---------------------------------------------------------------------------
   delta:
-    image: stoat-delta:dev
     build:
-      context: ./docker
-      dockerfile: Dockerfile.delta
+      <<: *app-build
+      args:
+        BASE_IMAGE: stoat-delta:dev
     ports:
       - "14702:14702"
-    user: "0"
-    volumes:
-      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
@@ -108,15 +114,12 @@ services:
         condition: service_healthy
 
   bonfire:
-    image: stoat-bonfire:dev
     build:
-      context: ./docker
-      dockerfile: Dockerfile.bonfire
+      <<: *app-build
+      args:
+        BASE_IMAGE: stoat-bonfire:dev
     ports:
       - "14703:14703"
-    user: "0"
-    volumes:
-      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
@@ -126,15 +129,12 @@ services:
         condition: service_healthy
 
   autumn:
-    image: stoat-autumn:dev
     build:
-      context: ./docker
-      dockerfile: Dockerfile.autumn
+      <<: *app-build
+      args:
+        BASE_IMAGE: stoat-autumn:dev
     ports:
       - "14704:14704"
-    user: "0"
-    volumes:
-      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
@@ -144,15 +144,12 @@ services:
         condition: service_completed_successfully
 
   january:
-    image: stoat-january:dev
     build:
-      context: ./docker
-      dockerfile: Dockerfile.january
+      <<: *app-build
+      args:
+        BASE_IMAGE: stoat-january:dev
     ports:
       - "14705:14705"
-    user: "0"
-    volumes:
-      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
