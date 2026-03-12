@@ -96,6 +96,7 @@ services:
       - "14702:14702"
     volumes:
       - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
@@ -115,6 +116,7 @@ services:
       - "14703:14703"
     volumes:
       - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
@@ -132,6 +134,7 @@ services:
       - "14704:14704"
     volumes:
       - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
@@ -149,6 +152,7 @@ services:
       - "14705:14705"
     volumes:
       - ./config/Revolt.compose.toml:/home/rust/src/Revolt.overrides.toml:ro
+      - ./config/Revolt.compose.toml:/Revolt.overrides.toml:ro
     depends_on:
       redis:
         condition: service_started
