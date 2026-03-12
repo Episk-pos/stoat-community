@@ -1,0 +1,14 @@
+# Flutter web dev server — used by Tilt for local development.
+#
+# Source code is volume-mounted at runtime:
+#   -v <stoat-flutter>:/app
+#   -v <stoat-sdk-dart>:/stoat-sdk-dart
+#
+# The stoat_sdk path dependency (../../../stoat-sdk-dart from packages/app/)
+# resolves to /stoat-sdk-dart inside the container.
+FROM ghcr.io/cirruslabs/flutter:3.29.0
+
+WORKDIR /app
+EXPOSE 5174
+
+ENTRYPOINT ["sh", "-c", "flutter pub get && cd packages/app && flutter run -d web-server --web-port=5174 --web-hostname=0.0.0.0"]

@@ -221,14 +221,31 @@ if has_frontend:
     )
 
 # ---------------------------------------------------------------------------
-# Flutter frontend — local dev server (web target)
+# Flutter frontend — containerised dev server (no host Flutter SDK needed)
 # ---------------------------------------------------------------------------
 if has_flutter:
     flutter_deps = ['delta'] if has_backend else []
+    SDK_PATH = os.path.join(SIBLING_DIR, 'stoat-sdk-dart')
+
+    # Build the flutter dev image (one-time, uses cached Flutter SDK layer)
+    local_resource(
+        'flutter-dev-image',
+        cmd='docker build -t stoat-flutter-dev:latest -f %s/Dockerfile.flutter-dev %s' % (DOCKER_DIR, DOCKER_DIR),
+        deps=[os.path.join(DOCKER_DIR, 'Dockerfile.flutter-dev')],
+        labels=['build'],
+    )
+
     local_resource(
         'flutter-dev',
-        serve_cmd='cd %s/packages/app && flutter run -d chrome --web-port=5174' % FLUTTER,
+        serve_cmd=' '.join([
+            'docker rm -f stoat-flutter-dev 2>/dev/null;',
+            'docker run --rm --name stoat-flutter-dev',
+            '-p 5174:5174',
+            '-v %s:/app' % FLUTTER,
+            '-v %s:/stoat-sdk-dart' % SDK_PATH,
+            'stoat-flutter-dev:latest',
+        ]),
         labels=['frontend'],
-        resource_deps=flutter_deps,
+        resource_deps=flutter_deps + ['flutter-dev-image'],
         links=['http://localhost:5174'],
     )
