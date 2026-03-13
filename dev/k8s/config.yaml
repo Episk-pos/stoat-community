@@ -44,3 +44,4 @@ data:
     access_key_id = "minioautumn"
     secret_access_key = "minioautumn"
     default_bucket = "revolt-uploads"
+    path_style_buckets = true
