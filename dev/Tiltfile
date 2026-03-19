@@ -8,6 +8,7 @@ config.define_bool('prebuilt')
 config.define_bool('compose')
 config.define_bool('knowledge-browser')
 config.define_bool('discord-stoat-sync')
+config.define_bool('activity-sim')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
@@ -449,6 +450,70 @@ cfg = json.load(open(path)) if os.path.exists(path) else {}
 cfg['discord-stoat-sync'] = False
 json.dump(cfg, open(path, 'w'), indent=2)
 print('Discord-Stoat-Sync disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
+
+# ---------------------------------------------------------------------------
+# Activity Simulator — synthetic data generator (disabled by default)
+# ---------------------------------------------------------------------------
+# Toggle via: tilt args -- --activity-sim
+#             Edit tilt_config.json: {"activity-sim": true}
+#             Click Enable/Disable button in the Tilt UI
+# ---------------------------------------------------------------------------
+
+ENABLE_SIM = cfg.get('activity-sim', False)
+SIM_DIR = os.path.join(os.getcwd(), 'sim')
+
+if not ENABLE_SIM:
+    local_resource(
+        '\u26a0\ufe0f activity-sim',
+        cmd='echo "Activity Simulator is DISABLED. Click Enable to turn it on."',
+        labels=['tools'],
+    )
+    cmd_button(
+        'enable-activity-sim',
+        resource='\u26a0\ufe0f activity-sim',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['activity-sim'] = True
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Activity Simulator enabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Enable',
+        icon_name='power_settings_new',
+    )
+
+elif not COMPOSE:
+    docker_build(
+        'sim-app', SIM_DIR,
+        dockerfile=os.path.join(SIM_DIR, 'Dockerfile.dev'),
+        ignore=['.git', '__pycache__', '*.pyc', '.mypy_cache'],
+        live_update=[
+            sync(os.path.join(SIM_DIR, 'sim/'), '/app/sim/'),
+            run('cd /app && pip install -e .', trigger=['pyproject.toml']),
+        ],
+    )
+
+    k8s_yaml(os.path.join(SIM_DIR, 'k8s/deployment.yaml'))
+
+    k8s_resource('activity-sim', labels=['tools'],
+                 port_forwards=['3005:8000'],
+                 resource_deps=['delta', 'mongodb'])
+
+    cmd_button(
+        'disable-activity-sim',
+        resource='activity-sim',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['activity-sim'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Activity Simulator disabled. Tiltfile will re-evaluate...')
 """ % CONFIG_FILE],
         text='Disable',
         icon_name='power_settings_new',

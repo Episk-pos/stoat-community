@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stoat Activity Simulator</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        :root {
+            --bg: #1a1b26; --surface: #24283b; --border: #414868;
+            --text: #c0caf5; --text-dim: #565f89; --accent: #7aa2f7;
+            --green: #9ece6a; --red: #f7768e; --yellow: #e0af68;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 1.5rem; }
+        h1 { color: var(--accent); margin-bottom: 1rem; font-size: 1.5rem; }
+        h2 { color: var(--text-dim); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+        .full-width { grid-column: 1 / -1; }
+
+        label { display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+        input[type="text"], input[type="number"] {
+            width: 100%; padding: 0.5rem; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 4px; color: var(--text); font-size: 0.9rem;
+        }
+        input:focus { outline: none; border-color: var(--accent); }
+
+        .row { display: flex; gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; }
+        .row > div { flex: 1; }
+
+        button, .btn {
+            padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; transition: opacity 0.2s;
+        }
+        button:hover, .btn:hover { opacity: 0.85; }
+        .btn-start { background: var(--green); color: var(--bg); }
+        .btn-stop { background: var(--red); color: var(--bg); }
+        .btn-add { background: var(--accent); color: var(--bg); }
+        .btn-remove { background: var(--border); color: var(--text); padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+
+        .status-badge {
+            display: inline-block; padding: 0.25rem 0.75rem; border-radius: 12px;
+            font-size: 0.8rem; font-weight: 600;
+        }
+        .status-running { background: var(--green); color: var(--bg); }
+        .status-stopped { background: var(--border); color: var(--text); }
+        .status-starting { background: var(--yellow); color: var(--bg); }
+        .status-stopping { background: var(--yellow); color: var(--bg); }
+
+        .log-container { max-height: 300px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.8rem; }
+        .log-entry { padding: 0.2rem 0; border-bottom: 1px solid var(--border); display: flex; gap: 0.5rem; }
+        .log-time { color: var(--text-dim); min-width: 5rem; }
+        .log-user { color: var(--accent); min-width: 8rem; font-weight: 600; }
+        .log-action { color: var(--yellow); min-width: 5rem; }
+        .log-channel { color: var(--green); min-width: 6rem; }
+        .log-detail { color: var(--text); flex: 1; }
+
+        .user-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .user-chip {
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;
+            background: var(--bg); border: 1px solid var(--border);
+        }
+        .user-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .dot-active { background: var(--green); }
+        .dot-inactive { background: var(--border); }
+
+        .channel-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .channel-chip {
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;
+            background: var(--bg); border: 1px solid var(--border);
+        }
+
+        .checkbox-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+        .checkbox-row input[type="checkbox"] { accent-color: var(--accent); }
+
+        .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
+        .htmx-request .htmx-indicator { opacity: 1; }
+    </style>
+</head>
+<body>
+    <h1>Stoat Activity Simulator</h1>
+
+    <div class="grid">
+        <!-- Status -->
+        <div class="card" id="status-panel"
+             hx-get="/partial/status" hx-trigger="every 2s" hx-swap="innerHTML">
+            {% include "partials/status.html" %}
+        </div>
+
+        <!-- Config / Controls -->
+        <div class="card">
+            <h2>Configuration</h2>
+            <form hx-post="/api/start" hx-target="#status-panel" hx-swap="innerHTML">
+                <div class="row">
+                    <div>
+                        <label for="num_users">Users</label>
+                        <input type="number" name="num_users" id="num_users"
+                               value="{{ state.config.num_users }}" min="1" max="50">
+                    </div>
+                    <div>
+                        <label for="server_name">Server Name</label>
+                        <input type="text" name="server_name" id="server_name"
+                               value="{{ state.config.server_name }}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div>
+                        <label for="min_delay">Min Delay (s)</label>
+                        <input type="number" name="min_delay" id="min_delay"
+                               value="{{ state.config.min_delay_seconds }}" min="0.5" step="0.5">
+                    </div>
+                    <div>
+                        <label for="max_delay">Max Delay (s)</label>
+                        <input type="number" name="max_delay" id="max_delay"
+                               value="{{ state.config.max_delay_seconds }}" min="1" step="0.5">
+                    </div>
+                </div>
+                <input type="hidden" name="channels"
+                       value="{{ state.config.target_channels | join(',') }}">
+                <div class="checkbox-row">
+                    <input type="checkbox" name="create_channels" id="create_channels"
+                           {% if state.config.create_missing_channels %}checked{% endif %}>
+                    <label for="create_channels" style="margin-bottom:0">Create missing channels</label>
+                </div>
+                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-start">Start</button>
+                    <button type="button" class="btn btn-stop"
+                            hx-post="/api/stop" hx-target="#status-panel" hx-swap="innerHTML">Stop</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Channels -->
+        <div class="card" id="channels-panel">
+            <h2>Channels</h2>
+            <div id="channels-content"
+                 hx-get="/partial/channels" hx-trigger="every 5s" hx-swap="innerHTML">
+                {% include "partials/channels.html" %}
+            </div>
+            <form hx-post="/api/channels/add" hx-target="#channels-content" hx-swap="innerHTML"
+                  style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                <input type="text" name="channel_name" placeholder="new-channel" style="flex: 1;">
+                <button type="submit" class="btn btn-add">Add</button>
+            </form>
+        </div>
+
+        <!-- Users -->
+        <div class="card" id="users-panel"
+             hx-get="/partial/users" hx-trigger="every 3s" hx-swap="innerHTML">
+            <h2>Simulated Users</h2>
+            {% include "partials/users.html" %}
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card full-width" id="log-panel">
+            <h2>Activity Log</h2>
+            <div class="log-container" id="log-content"
+                 hx-get="/partial/log" hx-trigger="every 2s" hx-swap="innerHTML">
+                {% include "partials/log.html" %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

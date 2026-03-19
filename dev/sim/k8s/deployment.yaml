@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-sim
+  namespace: stoat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activity-sim
+  template:
+    metadata:
+      labels:
+        app: activity-sim
+    spec:
+      containers:
+        - name: activity-sim
+          image: sim-app
+          ports:
+            - containerPort: 8000
+          env:
+            - name: STOAT_API_URL
+              value: "http://delta:14702"
+            - name: MONGO_URL
+              value: "mongodb://mongodb:27017"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /api/state
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: activity-sim
+  namespace: stoat
+spec:
+  type: ClusterIP
+  selector:
+    app: activity-sim
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,17 @@
+<div class="channel-list">
+{% for name in config.target_channels %}
+<span class="channel-chip">
+    #{{ name }}
+    {% if channels.get(name) %}
+    <span style="color: var(--green); font-size: 0.7rem;" title="exists in Stoat">&#x2713;</span>
+    {% endif %}
+    <button class="btn-remove"
+            hx-delete="/api/channels/{{ name }}"
+            hx-target="#channels-content"
+            hx-swap="innerHTML">&times;</button>
+</span>
+{% endfor %}
+{% if not config.target_channels %}
+<p style="color: var(--text-dim); font-size: 0.85rem;">No channels configured.</p>
+{% endif %}
+</div>

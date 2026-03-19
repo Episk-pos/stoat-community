@@ -1,0 +1,14 @@
+<h2>Status</h2>
+<p>
+    <span class="status-badge status-{{ state.status.value }}">{{ state.status.value | upper }}</span>
+    {% if state.status.value == "running" %}
+    <span style="color: var(--text-dim); font-size: 0.85rem; margin-left: 0.5rem;">
+        {{ state.users | length }} users &middot; {{ state.channels | length }} channels
+    </span>
+    {% endif %}
+</p>
+{% if state.server_id %}
+<p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.5rem;">
+    Server: {{ state.config.server_name }} ({{ state.server_id[:8] }}...)
+</p>
+{% endif %}

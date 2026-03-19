@@ -1,0 +1,12 @@
+{% for event in log %}
+<div class="log-entry">
+    <span class="log-time">{{ event.timestamp.strftime('%H:%M:%S') }}</span>
+    <span class="log-user">{{ event.user }}</span>
+    <span class="log-action">{{ event.action.value }}</span>
+    <span class="log-channel">{% if event.channel %}#{{ event.channel }}{% endif %}</span>
+    <span class="log-detail">{{ event.detail }}</span>
+</div>
+{% endfor %}
+{% if not log %}
+<p style="color: var(--text-dim); font-size: 0.85rem; padding: 0.5rem 0;">No activity yet. Start the simulator to begin.</p>
+{% endif %}

@@ -1,0 +1,12 @@
+<h2>Simulated Users</h2>
+<div class="user-list">
+{% for user in users %}
+<span class="user-chip">
+    <span class="dot {{ 'dot-active' if user.active else 'dot-inactive' }}"></span>
+    {{ user.display_name }}
+</span>
+{% endfor %}
+{% if not users %}
+<p style="color: var(--text-dim); font-size: 0.85rem;">No users provisioned yet.</p>
+{% endif %}
+</div>
