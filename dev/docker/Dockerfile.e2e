@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/playwright:v1.50.0-noble
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY packages/client/e2e/package.json ./
+RUN npm install
+
+# Copy test source
+COPY packages/client/e2e/ ./
+
+# Generate BDD tests from Gherkin features at build time
+RUN npx bddgen
+
+# Default: run all tests headless
+CMD ["npx", "playwright", "test", "--reporter=list"]

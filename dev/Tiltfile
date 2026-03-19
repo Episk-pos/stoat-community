@@ -9,6 +9,7 @@ config.define_bool('compose')
 config.define_bool('knowledge-browser')
 config.define_bool('discord-stoat-sync')
 config.define_bool('activity-sim')
+config.define_bool('e2e-tests')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
@@ -514,6 +515,105 @@ cfg = json.load(open(path)) if os.path.exists(path) else {}
 cfg['activity-sim'] = False
 json.dump(cfg, open(path, 'w'), indent=2)
 print('Activity Simulator disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
+
+# ---------------------------------------------------------------------------
+# E2E Tests — Gherkin/Playwright cross-repo test suite (disabled by default)
+# ---------------------------------------------------------------------------
+# Toggle via: tilt args -- --e2e-tests
+#             Edit tilt_config.json: {"e2e-tests": true}
+#             Click Enable/Disable button in the Tilt UI
+# ---------------------------------------------------------------------------
+
+ENABLE_E2E = cfg.get('e2e-tests', False)
+CHAT_PATH = os.path.join(SIBLING_DIR, 'chat')
+has_e2e = os.path.exists(os.path.join(CHAT_PATH, 'packages/client/e2e/package.json'))
+
+if not ENABLE_E2E:
+    local_resource(
+        '\u26a0\ufe0f e2e-tests',
+        cmd='echo "E2E Tests are DISABLED. Click Enable to turn them on."',
+        labels=['test'],
+    )
+    cmd_button(
+        'enable-e2e-tests',
+        resource='\u26a0\ufe0f e2e-tests',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['e2e-tests'] = True
+json.dump(cfg, open(path, 'w'), indent=2)
+print('E2E Tests enabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Enable',
+        icon_name='power_settings_new',
+    )
+
+elif not has_e2e:
+    local_resource(
+        'e2e-tests',
+        cmd='echo "Chat repo not found at %s or missing packages/client/e2e/package.json."' % CHAT_PATH,
+        labels=['test'],
+    )
+
+elif not COMPOSE:
+    # Build the E2E test image from the chat repo
+    docker_build(
+        'e2e-tests-image', CHAT_PATH,
+        dockerfile=os.path.join(os.getcwd(), 'docker/Dockerfile.e2e'),
+        ignore=['.git', 'node_modules', '.beads', '.claude', 'terraform',
+                'stoat-*.png', '.playwright-mcp'],
+        live_update=[
+            fall_back_on([
+                os.path.join(CHAT_PATH, 'packages/client/e2e/package.json'),
+            ]),
+            sync(os.path.join(CHAT_PATH, 'packages/client/e2e/features/'), '/app/features/'),
+            sync(os.path.join(CHAT_PATH, 'packages/client/e2e/steps/'), '/app/steps/'),
+            sync(os.path.join(CHAT_PATH, 'packages/client/e2e/fixtures/'), '/app/fixtures/'),
+        ],
+    )
+
+    # E2E tests run on-demand, not as a persistent K8s deployment.
+    # The DSS_BASE_URL points to the discord-stoat-sync service in the cluster.
+    _e2e_deps = ['delta']
+    _dss_url = 'http://localhost:3003'
+    if cfg.get('discord-stoat-sync', False):
+        _e2e_deps.append('discord-stoat-sync')
+        _dss_url = 'http://discord-stoat-sync:3000'
+
+    local_resource(
+        'e2e-tests',
+        cmd='echo "E2E tests ready. Click Run to execute."',
+        labels=['test'],
+        resource_deps=_e2e_deps,
+    )
+
+    # Run button — executes the tests in a container
+    cmd_button(
+        'run-e2e-tests',
+        resource='e2e-tests',
+        argv=['sh', '-c',
+              'docker run --rm --network host ' +
+              '-e DSS_BASE_URL=' + _dss_url + ' ' +
+              'e2e-tests-image npx playwright test --reporter=list 2>&1'],
+        text='Run Tests',
+        icon_name='play_arrow',
+    )
+
+    cmd_button(
+        'disable-e2e-tests',
+        resource='e2e-tests',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['e2e-tests'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('E2E Tests disabled. Tiltfile will re-evaluate...')
 """ % CONFIG_FILE],
         text='Disable',
         icon_name='power_settings_new',
