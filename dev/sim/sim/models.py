@@ -15,7 +15,7 @@ class SimStatus(str, Enum):
 
 
 class SimConfig(BaseModel):
-    num_users: int = Field(default=5, ge=1, le=50)
+    num_users: int = Field(default=5, ge=1, le=20)
     server_name: str = "Sim Server"
     target_channels: list[str] = Field(default_factory=lambda: ["general", "random", "links"])
     min_delay_seconds: float = Field(default=2.0, ge=0.5)

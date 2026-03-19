@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,9 @@ from fastapi.templating import Jinja2Templates
 
 from .models import SimConfig, SimState
 from .simulator import SimulatorEngine
+
+# Prevent GC of fire-and-forget background tasks
+_background_tasks: set[asyncio.Task] = set()
 
 STOAT_API_URL = os.environ.get("STOAT_API_URL", "http://delta:14702")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongodb:27017")
@@ -54,7 +58,7 @@ async def partial_status(request: Request):
 async def partial_log(request: Request):
     return templates.TemplateResponse("partials/log.html", {
         "request": request,
-        "log": reversed(engine.state.log[-50:]),
+        "log": reversed(list(engine.logs)[-50:]),
     })
 
 
@@ -89,8 +93,9 @@ async def api_start(request: Request):
         create_missing_channels=form.get("create_channels") == "on",
     )
     # Start in background so response returns immediately
-    import asyncio
-    asyncio.create_task(engine.start(config))
+    task = asyncio.create_task(engine.start(config))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return templates.TemplateResponse("partials/status.html", {
         "request": request,
@@ -100,8 +105,9 @@ async def api_start(request: Request):
 
 @app.post("/api/stop", response_class=HTMLResponse)
 async def api_stop(request: Request):
-    import asyncio
-    asyncio.create_task(engine.stop())
+    task = asyncio.create_task(engine.stop())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return templates.TemplateResponse("partials/status.html", {
         "request": request,

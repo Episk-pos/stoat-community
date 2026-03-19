@@ -565,43 +565,23 @@ elif not COMPOSE:
     docker_build(
         'e2e-tests-image', CHAT_PATH,
         dockerfile=os.path.join(os.getcwd(), 'docker/Dockerfile.e2e'),
-        ignore=['.git', 'node_modules', '.beads', '.claude', 'terraform',
-                'stoat-*.png', '.playwright-mcp'],
-        live_update=[
-            fall_back_on([
-                os.path.join(CHAT_PATH, 'packages/client/e2e/package.json'),
-            ]),
-            sync(os.path.join(CHAT_PATH, 'packages/client/e2e/features/'), '/app/features/'),
-            sync(os.path.join(CHAT_PATH, 'packages/client/e2e/steps/'), '/app/steps/'),
-            sync(os.path.join(CHAT_PATH, 'packages/client/e2e/fixtures/'), '/app/fixtures/'),
+        only=[
+            'packages/client/e2e/',
         ],
     )
 
-    # E2E tests run on-demand, not as a persistent K8s deployment.
-    # The DSS_BASE_URL points to the discord-stoat-sync service in the cluster.
+    # E2E tests run as a K8s Job inside the cluster, accessing services via DNS.
     _e2e_deps = ['delta']
-    _dss_url = 'http://localhost:3003'
     if cfg.get('discord-stoat-sync', False):
         _e2e_deps.append('discord-stoat-sync')
-        _dss_url = 'http://discord-stoat-sync:3000'
 
-    local_resource(
+    k8s_yaml(os.path.join(os.getcwd(), 'k8s/e2e/job.yaml'))
+
+    k8s_resource(
         'e2e-tests',
-        cmd='echo "E2E tests ready. Click Run to execute."',
         labels=['test'],
         resource_deps=_e2e_deps,
-    )
-
-    # Run button — executes the tests in a container
-    cmd_button(
-        'run-e2e-tests',
-        resource='e2e-tests',
-        argv=['sh', '-c',
-              'docker run --rm --network host ' +
-              '-e DSS_BASE_URL=' + _dss_url + ' ' +
-              'e2e-tests-image npx playwright test --reporter=list 2>&1'],
-        text='Run Tests',
-        icon_name='play_arrow',
+        trigger_mode=TRIGGER_MODE_MANUAL,
     )
 
     cmd_button(

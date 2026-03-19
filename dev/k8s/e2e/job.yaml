@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: e2e-tests
+  namespace: stoat
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: e2e-tests
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: e2e-tests
+          image: e2e-tests-image
+          env:
+            - name: DSS_BASE_URL
+              value: "http://discord-stoat-sync:3000"
+            - name: CI
+              value: "true"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"

@@ -15,8 +15,6 @@ from .stoat_client import StoatClient
 
 logger = logging.getLogger(__name__)
 
-MAX_LOG_SIZE = 300
-
 
 class SimulatorEngine:
     """Orchestrates simulated user activity against the Stoat backend."""
@@ -25,7 +23,8 @@ class SimulatorEngine:
         self.client = StoatClient(stoat_url)
         self.db = SimDB(mongo_url)
         self.state = SimState()
-        self._tasks: list[asyncio.Task] = []
+        self.logs: deque[ActivityEvent] = deque(maxlen=500)
+        self._tasks: set[asyncio.Task] = set()
         self._stop_event = asyncio.Event()
 
     async def close(self):
@@ -41,10 +40,7 @@ class SimulatorEngine:
             channel=channel,
             detail=detail,
         )
-        self.state.log.append(event)
-        # Trim log
-        if len(self.state.log) > MAX_LOG_SIZE:
-            self.state.log = self.state.log[-MAX_LOG_SIZE:]
+        self.logs.append(event)
 
     # -- provisioning --
 
@@ -197,7 +193,8 @@ class SimulatorEngine:
             self._log("system", ActivityType.message, detail="simulation started!")
             for user in self.state.users:
                 task = asyncio.create_task(self._user_loop(user))
-                self._tasks.append(task)
+                self._tasks.add(task)
+                task.add_done_callback(self._tasks.discard)
 
         except Exception as e:
             logger.exception("Failed to start simulation")
@@ -213,7 +210,7 @@ class SimulatorEngine:
         self._stop_event.set()
 
         if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
+            await asyncio.gather(*list(self._tasks), return_exceptions=True)
             self._tasks.clear()
 
         for user in self.state.users:
