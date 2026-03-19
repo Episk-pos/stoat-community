@@ -7,6 +7,7 @@ config.define_string('flutter_path')
 config.define_bool('prebuilt')
 config.define_bool('compose')
 config.define_bool('knowledge-browser')
+config.define_bool('discord-stoat-sync')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
@@ -362,6 +363,92 @@ cfg = json.load(open(path)) if os.path.exists(path) else {}
 cfg['knowledge-browser'] = False
 json.dump(cfg, open(path, 'w'), indent=2)
 print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
+
+# ---------------------------------------------------------------------------
+# Discord-Stoat-Sync — optional Next.js service (disabled by default)
+# ---------------------------------------------------------------------------
+# Toggle via: tilt args -- --discord-stoat-sync
+#             Edit tilt_config.json: {"discord-stoat-sync": true}
+#             Click Enable/Disable button in the Tilt UI
+# ---------------------------------------------------------------------------
+
+ENABLE_DSS = cfg.get('discord-stoat-sync', False)
+DSS_PATH = os.path.join(SIBLING_DIR, 'discord-stoat-sync')
+has_dss = os.path.exists(os.path.join(DSS_PATH, 'package.json'))
+
+if not ENABLE_DSS:
+    # --- Disabled: show placeholder with Enable button ---
+    local_resource(
+        '\u26a0\ufe0f discord-stoat-sync',
+        cmd='echo "Discord-Stoat-Sync is DISABLED. Click Enable to turn it on."',
+        labels=['discord-stoat-sync'],
+    )
+    cmd_button(
+        'enable-discord-stoat-sync',
+        resource='\u26a0\ufe0f discord-stoat-sync',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['discord-stoat-sync'] = True
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Discord-Stoat-Sync enabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Enable',
+        icon_name='power_settings_new',
+    )
+
+elif not has_dss:
+    # --- Enabled but repo not cloned: show clone button ---
+    local_resource(
+        'discord-stoat-sync',
+        cmd='echo "Discord-Stoat-Sync repo not found at %s. Clone it first."' % DSS_PATH,
+        labels=['discord-stoat-sync'],
+    )
+    cmd_button(
+        'clone-discord-stoat-sync',
+        resource='discord-stoat-sync',
+        argv=['sh', '-c', 'git clone https://github.com/Cypherpunk-Labs/discord-stoat-sync.git %s && echo "Cloned! Tiltfile will re-evaluate..."' % DSS_PATH],
+        text='Clone Repo',
+        icon_name='download',
+    )
+    cmd_button(
+        'disable-discord-stoat-sync',
+        resource='discord-stoat-sync',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['discord-stoat-sync'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Discord-Stoat-Sync disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
+
+elif not COMPOSE:
+    # --- Enabled and cloned (K8s mode): deploy DSS using shared module ---
+    _dss = load_dynamic(DSS_PATH + '/tilt_lib.star')
+    _dss['dss_docker_build'](DSS_PATH)
+    _dss['dss_k8s_resources'](DSS_PATH, variant='stoat',
+                              labels=['discord-stoat-sync'])
+
+    # Button to disable
+    cmd_button(
+        'disable-discord-stoat-sync',
+        resource='discord-stoat-sync',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['discord-stoat-sync'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Discord-Stoat-Sync disabled. Tiltfile will re-evaluate...')
 """ % CONFIG_FILE],
         text='Disable',
         icon_name='power_settings_new',
