@@ -344,32 +344,12 @@ print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
     )
 
 elif not COMPOSE:
-    # --- Enabled and cloned (K8s mode): deploy KB ---
-    docker_build(
-        'kb-app', KB_PATH,
-        dockerfile=os.path.join(KB_PATH, 'Dockerfile.dev'),
-        ignore=['.git', '_build', 'deps', '.beads', '.claude', 'k8s', 'docs', '*.md'],
-        live_update=[
-            fall_back_on([
-                os.path.join(KB_PATH, 'mix.exs'),
-                os.path.join(KB_PATH, 'mix.lock'),
-                os.path.join(KB_PATH, 'Dockerfile.dev'),
-            ]),
-            sync(os.path.join(KB_PATH, 'lib/'), '/app/lib/'),
-            sync(os.path.join(KB_PATH, 'config/'), '/app/config/'),
-            sync(os.path.join(KB_PATH, 'priv/'), '/app/priv/'),
-            sync(os.path.join(KB_PATH, 'assets/'), '/app/assets/'),
-            run('cd /app && mix deps.get', trigger=['mix.exs', 'mix.lock']),
-        ],
-    )
-
-    k8s_yaml('k8s/knowledge-browser/postgres.yaml')
-    k8s_yaml('k8s/knowledge-browser/app.yaml')
-
-    k8s_resource('kb-postgres', labels=['knowledge-browser'])
-    k8s_resource('knowledge-browser', labels=['knowledge-browser'],
-                 port_forwards=['4002:4000'],
-                 resource_deps=['kb-postgres', 'mongodb'])
+    # --- Enabled and cloned (K8s mode): deploy KB using shared module ---
+    _kb = load_dynamic(KB_PATH + '/tilt_lib.star')
+    _kb['kb_docker_build'](KB_PATH)
+    _kb['kb_k8s_resources'](KB_PATH, variant='stoat',
+                            labels=['knowledge-browser'],
+                            resource_deps=['mongodb'])
 
     # Button to disable
     cmd_button(
