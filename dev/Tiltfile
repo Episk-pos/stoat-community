@@ -277,55 +277,28 @@ if has_flutter:
     )
 
 # ---------------------------------------------------------------------------
-# EXPERIMENT: Tilt UIButton API
+# Knowledge Browser — optional Elixir/Phoenix service (disabled by default)
 # ---------------------------------------------------------------------------
-# Testing the cmd_button extension to understand what's possible for
-# toggle-style service enable/disable in the Tilt web UI.
-#
-# Key finding from research:
-#   - cmd_button runs a local shell command when clicked
-#   - Writing to tilt_config.json triggers Tiltfile re-evaluation
-#   - This means: button click -> write config -> Tiltfile reruns -> UI updates
+# Toggle via: tilt args -- --knowledge-browser
+#             tilt up -- --knowledge-browser
+#             Edit tilt_config.json: {"knowledge-browser": true}
+#             Click Enable/Disable button in the Tilt UI
 # ---------------------------------------------------------------------------
 
-load('ext://uibutton', 'cmd_button', 'bool_input', 'text_input', 'location')
+load('ext://uibutton', 'cmd_button')
 
-# Read current config state (for the toggle experiment).
-# config.define_bool('knowledge-browser') is at the top with other config defs.
 ENABLE_KB = cfg.get('knowledge-browser', False)
-
-# --- Experiment 1: Toggle button via tilt_config.json ---
-# A resource that shows current KB state and has a toggle button.
+KB_PATH = os.path.join(SIBLING_DIR, 'knowledge-browser')
+has_kb = os.path.exists(os.path.join(KB_PATH, 'mix.exs'))
 CONFIG_FILE = os.path.join(os.getcwd(), 'tilt_config.json')
 
-if ENABLE_KB:
-    local_resource(
-        'knowledge-browser',
-        cmd='echo "Knowledge Browser is ENABLED (experiment mode — no actual service yet)"',
-        labels=['knowledge-browser'],
-    )
-    # Button to disable
-    cmd_button(
-        'disable-knowledge-browser',
-        resource='knowledge-browser',
-        argv=['python3', '-c', """
-import json, os
-path = '%s'
-cfg = json.load(open(path)) if os.path.exists(path) else {}
-cfg['knowledge-browser'] = False
-json.dump(cfg, open(path, 'w'), indent=2)
-print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
-""" % CONFIG_FILE],
-        text='Disable',
-        icon_name='power_settings_new',
-    )
-else:
+if not ENABLE_KB:
+    # --- Disabled: show placeholder with Enable button ---
     local_resource(
         '\u26a0\ufe0f knowledge-browser',
         cmd='echo "Knowledge Browser is DISABLED. Click Enable to turn it on."',
         labels=['knowledge-browser'],
     )
-    # Button to enable
     cmd_button(
         'enable-knowledge-browser',
         resource='\u26a0\ufe0f knowledge-browser',
@@ -341,26 +314,75 @@ print('Knowledge Browser enabled. Tiltfile will re-evaluate...')
         icon_name='power_settings_new',
     )
 
-# --- Experiment 2: Nav bar button ---
-# A global button in the top nav bar.
-cmd_button(
-    'quick-status',
-    argv=['sh', '-c', 'echo "=== Stoat Dev Status ===" && echo "KB enabled: %s" && echo "Backend: %s" && echo "Frontend: %s" && echo "Flutter: %s"' % (ENABLE_KB, has_backend, has_frontend, has_flutter)],
-    text='Status',
-    location=location.NAV,
-    icon_name='info',
-)
+elif not has_kb:
+    # --- Enabled but repo not cloned: show clone button ---
+    local_resource(
+        'knowledge-browser',
+        cmd='echo "Knowledge Browser repo not found at %s. Clone it first."' % KB_PATH,
+        labels=['knowledge-browser'],
+    )
+    cmd_button(
+        'clone-knowledge-browser',
+        resource='knowledge-browser',
+        argv=['sh', '-c', 'git clone https://github.com/episkopos/knowledge-browser.git %s && echo "Cloned! Tiltfile will re-evaluate..."' % KB_PATH],
+        text='Clone Repo',
+        icon_name='download',
+    )
+    cmd_button(
+        'disable-knowledge-browser',
+        resource='knowledge-browser',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['knowledge-browser'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
 
-# --- Experiment 3: Button with inputs ---
-# A button that takes user input (demonstrates the input API).
-_kb_resource_name = 'knowledge-browser' if ENABLE_KB else '\u26a0\ufe0f knowledge-browser'
-cmd_button(
-    'echo-message',
-    resource=_kb_resource_name,
-    argv=['sh', '-c', 'echo "User said: $MESSAGE"'],
-    text='Echo',
-    icon_name='chat',
-    inputs=[
-        text_input('MESSAGE', label='Message', default='hello from tilt'),
-    ],
-)
+elif not COMPOSE:
+    # --- Enabled and cloned (K8s mode): deploy KB ---
+    docker_build(
+        'kb-app', KB_PATH,
+        dockerfile=os.path.join(KB_PATH, 'Dockerfile.dev'),
+        ignore=['.git', '_build', 'deps', '.beads', '.claude', 'k8s', 'docs', '*.md'],
+        live_update=[
+            fall_back_on([
+                os.path.join(KB_PATH, 'mix.exs'),
+                os.path.join(KB_PATH, 'mix.lock'),
+                os.path.join(KB_PATH, 'Dockerfile.dev'),
+            ]),
+            sync(os.path.join(KB_PATH, 'lib/'), '/app/lib/'),
+            sync(os.path.join(KB_PATH, 'config/'), '/app/config/'),
+            sync(os.path.join(KB_PATH, 'priv/'), '/app/priv/'),
+            sync(os.path.join(KB_PATH, 'assets/'), '/app/assets/'),
+            run('cd /app && mix deps.get', trigger=['mix.exs', 'mix.lock']),
+        ],
+    )
+
+    k8s_yaml('k8s/knowledge-browser/postgres.yaml')
+    k8s_yaml('k8s/knowledge-browser/app.yaml')
+
+    k8s_resource('kb-postgres', labels=['knowledge-browser'])
+    k8s_resource('knowledge-browser', labels=['knowledge-browser'],
+                 port_forwards=['4002:4000'],
+                 resource_deps=['kb-postgres', 'mongodb'])
+
+    # Button to disable
+    cmd_button(
+        'disable-knowledge-browser',
+        resource='knowledge-browser',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['knowledge-browser'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
