@@ -6,6 +6,7 @@ config.define_string('frontend_path')
 config.define_string('flutter_path')
 config.define_bool('prebuilt')
 config.define_bool('compose')
+config.define_bool('knowledge-browser')
 cfg = config.parse()
 
 BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
@@ -249,3 +250,117 @@ if has_flutter:
         resource_deps=flutter_deps + ['flutter-dev-image'],
         links=['http://localhost:5174'],
     )
+
+    # Integration tests — runs in container against the real seeded backend.
+    # Uses host network to reach delta at localhost:14702.
+    flutter_test_deps = ['flutter-dev-image'] + flutter_deps
+    if has_backend:
+        flutter_test_deps.append('seed')
+    local_resource(
+        'flutter-tests',
+        cmd=' '.join([
+            'docker run --rm --name stoat-flutter-tests',
+            '--network=host',
+            '-v %s:/app' % FLUTTER,
+            '-v %s:/stoat-sdk-dart' % SDK_PATH,
+            'stoat-flutter-dev:latest',
+            'sh', '-c',
+            '"flutter pub get && cd packages/app && flutter test integration_test/' +
+            ' --dart-define=INTEGRATION_TEST_API_URL=http://localhost:14702' +
+            ' --dart-define=INTEGRATION_TEST_WS_URL=ws://localhost:14703' +
+            ' --dart-define=INTEGRATION_TEST_MEDIA_URL=http://localhost:14704"',
+        ]),
+        trigger_mode=TRIGGER_MODE_MANUAL,
+        auto_init=False,
+        labels=['test'],
+        resource_deps=flutter_test_deps,
+    )
+
+# ---------------------------------------------------------------------------
+# EXPERIMENT: Tilt UIButton API
+# ---------------------------------------------------------------------------
+# Testing the cmd_button extension to understand what's possible for
+# toggle-style service enable/disable in the Tilt web UI.
+#
+# Key finding from research:
+#   - cmd_button runs a local shell command when clicked
+#   - Writing to tilt_config.json triggers Tiltfile re-evaluation
+#   - This means: button click -> write config -> Tiltfile reruns -> UI updates
+# ---------------------------------------------------------------------------
+
+load('ext://uibutton', 'cmd_button', 'bool_input', 'text_input', 'location')
+
+# Read current config state (for the toggle experiment).
+# config.define_bool('knowledge-browser') is at the top with other config defs.
+ENABLE_KB = cfg.get('knowledge-browser', False)
+
+# --- Experiment 1: Toggle button via tilt_config.json ---
+# A resource that shows current KB state and has a toggle button.
+CONFIG_FILE = os.path.join(os.getcwd(), 'tilt_config.json')
+
+if ENABLE_KB:
+    local_resource(
+        'knowledge-browser',
+        cmd='echo "Knowledge Browser is ENABLED (experiment mode — no actual service yet)"',
+        labels=['knowledge-browser'],
+    )
+    # Button to disable
+    cmd_button(
+        'disable-knowledge-browser',
+        resource='knowledge-browser',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['knowledge-browser'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
+else:
+    local_resource(
+        '\u26a0\ufe0f knowledge-browser',
+        cmd='echo "Knowledge Browser is DISABLED. Click Enable to turn it on."',
+        labels=['knowledge-browser'],
+    )
+    # Button to enable
+    cmd_button(
+        'enable-knowledge-browser',
+        resource='\u26a0\ufe0f knowledge-browser',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['knowledge-browser'] = True
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Knowledge Browser enabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Enable',
+        icon_name='power_settings_new',
+    )
+
+# --- Experiment 2: Nav bar button ---
+# A global button in the top nav bar.
+cmd_button(
+    'quick-status',
+    argv=['sh', '-c', 'echo "=== Stoat Dev Status ===" && echo "KB enabled: %s" && echo "Backend: %s" && echo "Frontend: %s" && echo "Flutter: %s"' % (ENABLE_KB, has_backend, has_frontend, has_flutter)],
+    text='Status',
+    location=location.NAV,
+    icon_name='info',
+)
+
+# --- Experiment 3: Button with inputs ---
+# A button that takes user input (demonstrates the input API).
+_kb_resource_name = 'knowledge-browser' if ENABLE_KB else '\u26a0\ufe0f knowledge-browser'
+cmd_button(
+    'echo-message',
+    resource=_kb_resource_name,
+    argv=['sh', '-c', 'echo "User said: $MESSAGE"'],
+    text='Echo',
+    icon_name='chat',
+    inputs=[
+        text_input('MESSAGE', label='Message', default='hello from tilt'),
+    ],
+)
