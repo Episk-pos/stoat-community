@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.50.0-noble
+FROM mcr.microsoft.com/playwright:v1.58.2-noble
 WORKDIR /app
 
 # Copy package files and install dependencies deterministically
@@ -12,4 +12,4 @@ COPY packages/client/e2e/ ./
 RUN npx bddgen
 
 # Default: run all tests headless
-CMD ["npx", "playwright", "test", "--reporter=list"]
+CMD ["npx", "playwright", "test", "--reporter=line"]

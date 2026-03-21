@@ -244,14 +244,14 @@ if has_flutter:
         serve_cmd=' '.join([
             'docker rm -f stoat-flutter-dev 2>/dev/null;',
             'docker run --rm --name stoat-flutter-dev',
-            '-p 5174:5174',
+            '-p 5177:5174',
             '-v %s:/app' % FLUTTER,
             '-v %s:/stoat-sdk-dart' % SDK_PATH,
             'stoat-flutter-dev:latest',
         ]),
         labels=['frontend'],
         resource_deps=flutter_deps + ['flutter-dev-image'],
-        links=['http://localhost:5174'],
+        links=['http://localhost:5177'],
     )
 
     # Integration tests — runs in container against the real seeded backend.
@@ -262,13 +262,16 @@ if has_flutter:
     local_resource(
         'flutter-tests',
         cmd=' '.join([
+            'docker rm -f stoat-flutter-tests 2>/dev/null;',
             'docker run --rm --name stoat-flutter-tests',
             '--network=host',
             '-v %s:/app' % FLUTTER,
             '-v %s:/stoat-sdk-dart' % SDK_PATH,
             'stoat-flutter-dev:latest',
             'sh', '-c',
-            '"flutter pub get && cd packages/app && flutter test integration_test/' +
+            '"flutter pub get && cd packages/app && flutter pub get' +
+            ' && (chromedriver --port=4444 &) && sleep 2' +
+            ' && flutter drive --driver=test_driver/integration_test.dart --target=integration_test/login_test.dart -d web-server --browser-name=chrome --headless' +
             ' --dart-define=INTEGRATION_TEST_API_URL=http://localhost:14702' +
             ' --dart-define=INTEGRATION_TEST_WS_URL=ws://localhost:14703' +
             ' --dart-define=INTEGRATION_TEST_MEDIA_URL=http://localhost:14704"',

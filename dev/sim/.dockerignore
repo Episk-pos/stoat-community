@@ -1,0 +1,4 @@
+k8s/
+test_env/
+__pycache__/
+*.pyc

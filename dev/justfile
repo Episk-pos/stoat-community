@@ -48,6 +48,47 @@ up:
     kubectl config use-context {{ CONTEXT }}
     cd {{ justfile_directory() }} && tilt up
 
+# Start dev stack with Tilt API bound to Docker bridge (accessible from sibling KinD containers)
+up-shared:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
+        just kind-create
+    fi
+    kubectl config use-context {{ CONTEXT }}
+
+    # Deterministic Tilt API port from context/namespace seed (avoids collisions
+    # when multiple Tilt stacks run concurrently).
+    SEED="{{ CONTEXT }}/stoat"
+    PORT_OFFSET=$(( $(echo -n "$SEED" | cksum | cut -d' ' -f1) % 50 * 20 ))
+    TILT_PORT=$(( 10350 + PORT_OFFSET ))
+
+    # Detect Docker bridge gateway for the 'kind' network.
+    # Falls back to 127.0.0.1 if docker/jq unavailable or 'kind' network missing.
+    BRIDGE_IP="127.0.0.1"
+    if command -v jq &>/dev/null && command -v docker &>/dev/null; then
+        DETECTED="$(docker network inspect kind 2>/dev/null \
+            | jq -r '.[0].IPAM.Config[] | select(.Gateway != "" and (.Gateway | contains(":") | not)) | .Gateway' 2>/dev/null || true)"
+        if [ -n "$DETECTED" ]; then
+            BRIDGE_IP="$DETECTED"
+        fi
+    fi
+
+    echo "Tilt API bound to $BRIDGE_IP:$TILT_PORT (reachable from KinD containers)"
+
+    # Bridge the Tilt apiserver (localhost-only, random port) to the Docker bridge
+    # so the tilt CLI works from inside sibling containers.
+    BRIDGE_SCRIPT="{{ justfile_directory() }}/../../assistant/tools/devenv/tilt_api_bridge.sh"
+    if [ -x "$BRIDGE_SCRIPT" ] && command -v socat &>/dev/null; then
+        "$BRIDGE_SCRIPT" --tilt-port "$TILT_PORT" --bridge-ip "$BRIDGE_IP" &
+        BRIDGE_PID=$!
+        trap 'kill $BRIDGE_PID 2>/dev/null; wait $BRIDGE_PID 2>/dev/null' EXIT INT TERM
+    else
+        echo "(Skipping API bridge — socat or bridge script not available)"
+    fi
+
+    cd {{ justfile_directory() }} && tilt up --port "$TILT_PORT" --host "$BRIDGE_IP"
+
 # Stop Tilt (leaves cluster intact)
 down:
     cd {{ justfile_directory() }} && tilt down
@@ -104,6 +145,41 @@ up-prebuilt: pull-images
     fi
     kubectl config use-context {{ CONTEXT }}
     cd {{ justfile_directory() }} && tilt up -- --prebuilt
+
+# Start dev stack with pre-built images, Tilt API on Docker bridge
+up-shared-prebuilt: pull-images
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
+        just kind-create
+    fi
+    kubectl config use-context {{ CONTEXT }}
+
+    SEED="{{ CONTEXT }}/stoat"
+    PORT_OFFSET=$(( $(echo -n "$SEED" | cksum | cut -d' ' -f1) % 50 * 20 ))
+    TILT_PORT=$(( 10350 + PORT_OFFSET ))
+
+    BRIDGE_IP="127.0.0.1"
+    if command -v jq &>/dev/null && command -v docker &>/dev/null; then
+        DETECTED="$(docker network inspect kind 2>/dev/null \
+            | jq -r '.[0].IPAM.Config[] | select(.Gateway != "" and (.Gateway | contains(":") | not)) | .Gateway' 2>/dev/null || true)"
+        if [ -n "$DETECTED" ]; then
+            BRIDGE_IP="$DETECTED"
+        fi
+    fi
+
+    echo "Tilt API bound to $BRIDGE_IP:$TILT_PORT (reachable from KinD containers)"
+
+    BRIDGE_SCRIPT="{{ justfile_directory() }}/../../assistant/tools/devenv/tilt_api_bridge.sh"
+    if [ -x "$BRIDGE_SCRIPT" ] && command -v socat &>/dev/null; then
+        "$BRIDGE_SCRIPT" --tilt-port "$TILT_PORT" --bridge-ip "$BRIDGE_IP" &
+        BRIDGE_PID=$!
+        trap 'kill $BRIDGE_PID 2>/dev/null; wait $BRIDGE_PID 2>/dev/null' EXIT INT TERM
+    else
+        echo "(Skipping API bridge — socat or bridge script not available)"
+    fi
+
+    cd {{ justfile_directory() }} && tilt up --port "$TILT_PORT" --host "$BRIDGE_IP" -- --prebuilt
 
 # --- Docker Compose mode ---
 
