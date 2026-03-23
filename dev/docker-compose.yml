@@ -1,4 +1,4 @@
-# Stoat dev stack — Docker Compose equivalent of the K8s/Tilt setup.
+# Censer dev stack — Docker Compose equivalent of the K8s/Tilt setup.
 #
 # Prerequisites (local dev build):
 #   Build the backend binaries and copy them into docker/:
@@ -89,8 +89,8 @@ services:
     command:
       - -c
       - |
-        mc alias set stoat http://minio:9000 minioautumn minioautumn &&
-        mc mb --ignore-existing stoat/revolt-uploads
+        mc alias set censer http://minio:9000 minioautumn minioautumn &&
+        mc mb --ignore-existing censer/revolt-uploads
     restart: "no"
 
   # ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ services:
     build:
       <<: *app-build
       args:
-        BASE_IMAGE: stoat-delta:dev
+        BASE_IMAGE: censer-delta:dev
     ports:
       - "14702:14702"
     depends_on:
@@ -117,7 +117,7 @@ services:
     build:
       <<: *app-build
       args:
-        BASE_IMAGE: stoat-bonfire:dev
+        BASE_IMAGE: censer-bonfire:dev
     ports:
       - "14703:14703"
     depends_on:
@@ -132,7 +132,7 @@ services:
     build:
       <<: *app-build
       args:
-        BASE_IMAGE: stoat-autumn:dev
+        BASE_IMAGE: censer-autumn:dev
     ports:
       - "14704:14704"
     depends_on:
@@ -147,7 +147,7 @@ services:
     build:
       <<: *app-build
       args:
-        BASE_IMAGE: stoat-january:dev
+        BASE_IMAGE: censer-january:dev
     ports:
       - "14705:14705"
     depends_on:
@@ -160,7 +160,7 @@ services:
   # Seed — only runs with: docker compose --profile seed up
   # ---------------------------------------------------------------------------
   seed:
-    image: stoat-seed:dev
+    image: censer-seed:dev
     build:
       context: ./seed
       dockerfile: ../docker/Dockerfile.seed

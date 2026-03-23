@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: autumn
-  namespace: stoat
+  namespace: censer
 spec:
   replicas: 1
   selector:
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: autumn
-          image: stoat-autumn:dev
+          image: censer-autumn:dev
           imagePullPolicy: Never
           ports:
             - containerPort: 14704
@@ -26,13 +26,13 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: stoat-config
+            name: censer-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: autumn
-  namespace: stoat
+  namespace: censer
 spec:
   type: NodePort
   selector:

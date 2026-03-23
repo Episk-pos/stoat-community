@@ -52,8 +52,8 @@ Expected output (example for stoat-frontend):
 ```
 gh       git@github.com:Episk-pos/for-web.git (fetch)
 gh       git@github.com:Episk-pos/for-web.git (push)
-gl       git@work.episkopos.community:episkopos/stoat-frontend.git (fetch)
-gl       git@work.episkopos.community:episkopos/stoat-frontend.git (push)
+gl       git@work.episkopos.community:episkopos/censer-web.git (fetch)
+gl       git@work.episkopos.community:episkopos/censer-web.git (push)
 upstream git@github.com:stoatchat/for-web.git (fetch)
 upstream git@github.com:stoatchat/for-web.git (push)
 ```
@@ -118,7 +118,7 @@ git diff upstream..main
 
 ## Upstream Contribution Flow
 
-When a change is suitable for contributing back to the upstream Stoat project:
+When a change is suitable for contributing back to upstream Stoat:
 
 1. **Create a feature branch** from `main` as usual.
 2. **Develop and test** the change.
@@ -156,5 +156,5 @@ This makes it clear when reviewing `git log upstream..main` which commits are di
 
 | Our repo | Upstream repo | Description |
 |----------|---------------|-------------|
-| `stoat-frontend` (gl: `episkopos/stoat-frontend`) | [stoatchat/for-web](https://github.com/stoatchat/for-web) | Web frontend (React/Vite) |
+| `stoat-frontend` (gl: `episkopos/censer-web`) | [stoatchat/for-web](https://github.com/stoatchat/for-web) | Web frontend (React/Vite) |
 | `stoat-backend` (gl: `episkopos/stoat-backend`) | [stoatchat/stoatchat](https://github.com/stoatchat/stoatchat) | Backend services (Rust: Delta, Bonfire, Autumn, January) |

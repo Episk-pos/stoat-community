@@ -1,4 +1,4 @@
-# Contributing to Stoat Community
+# Contributing to Episkopos Community
 
 ## Issues
 We welcome:

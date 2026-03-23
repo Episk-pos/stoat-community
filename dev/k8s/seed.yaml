@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: seed
-  namespace: stoat
+  namespace: censer
 spec:
   backoffLimit: 5
   ttlSecondsAfterFinished: 30
@@ -11,10 +11,10 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: seed
-          image: stoat-seed:dev
+          image: censer-seed:dev
           imagePullPolicy: Never
           env:
             - name: DELTA_URL
-              value: "http://delta.stoat.svc:14702"
+              value: "http://delta.censer.svc:14702"
             - name: MONGO_URI
-              value: "mongodb://mongodb.stoat.svc:27017"
+              value: "mongodb://mongodb.censer.svc:27017"

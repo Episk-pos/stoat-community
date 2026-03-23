@@ -33,7 +33,7 @@ REPOS = {
     },
     'flutter': {
         'path': FLUTTER,
-        'clone_url': 'https://work.episkopos.community/episkopos/stoat-flutter.git',
+        'clone_url': 'https://work.episkopos.community/episkopos/censer-flutter.git',
         'dir_name': 'stoat-flutter',
     },
 }
@@ -103,7 +103,7 @@ else:
     # -----------------------------------------------------------------------
     # Kubernetes mode (default)
     # -----------------------------------------------------------------------
-    allow_k8s_contexts(['kind-stoat'])
+    allow_k8s_contexts(['kind-censer'])
 
     # -------------------------------------------------------------------
     # Namespace + Config
@@ -156,7 +156,7 @@ else:
             )
 
             for name, svc in SERVICES.items():
-                image_tag = 'stoat-%s:dev' % name
+                image_tag = 'censer-%s:dev' % name
                 dockerfile = os.path.join(DOCKER_DIR, 'Dockerfile.%s' % name)
 
                 # Build thin Docker image via staging dir (avoids backend .dockerignore)
@@ -167,7 +167,7 @@ else:
                         'cp %s/target/release/%s $STAGE/' % (BACKEND, svc['binary']),
                         'cp %s $STAGE/Dockerfile' % dockerfile,
                         'docker build -t %s $STAGE' % image_tag,
-                        'kind load docker-image %s --name stoat' % image_tag,
+                        'kind load docker-image %s --name censer' % image_tag,
                         'rm -rf $STAGE',
                     ]),
                     resource_deps=['backend-build'],
@@ -199,8 +199,8 @@ else:
                 'STAGE=$(mktemp -d)',
                 'cp %s/seed.py $STAGE/' % SEED_DIR,
                 'cp %s/Dockerfile.seed $STAGE/Dockerfile' % DOCKER_DIR,
-                'docker build -t stoat-seed:dev $STAGE',
-                'kind load docker-image stoat-seed:dev --name stoat',
+                'docker build -t censer-seed:dev $STAGE',
+                'kind load docker-image censer-seed:dev --name censer',
                 'rm -rf $STAGE',
             ]),
             deps=[SEED_DIR, os.path.join(DOCKER_DIR, 'Dockerfile.seed')],
@@ -234,7 +234,7 @@ if has_flutter:
     # Build the flutter dev image (one-time, uses cached Flutter SDK layer)
     local_resource(
         'flutter-dev-image',
-        cmd='docker build -t stoat-flutter-dev:latest -f %s/Dockerfile.flutter-dev %s' % (DOCKER_DIR, DOCKER_DIR),
+        cmd='docker build -t censer-flutter-dev:latest -f %s/Dockerfile.flutter-dev %s' % (DOCKER_DIR, DOCKER_DIR),
         deps=[os.path.join(DOCKER_DIR, 'Dockerfile.flutter-dev')],
         labels=['build'],
     )
@@ -242,12 +242,12 @@ if has_flutter:
     local_resource(
         'flutter-dev',
         serve_cmd=' '.join([
-            'docker rm -f stoat-flutter-dev 2>/dev/null;',
-            'docker run --rm --name stoat-flutter-dev',
+            'docker rm -f censer-flutter-dev 2>/dev/null;',
+            'docker run --rm --name censer-flutter-dev',
             '-p 5177:5174',
             '-v %s:/app' % FLUTTER,
             '-v %s:/stoat-sdk-dart' % SDK_PATH,
-            'stoat-flutter-dev:latest',
+            'censer-flutter-dev:latest',
         ]),
         labels=['frontend'],
         resource_deps=flutter_deps + ['flutter-dev-image'],
@@ -262,12 +262,12 @@ if has_flutter:
     local_resource(
         'flutter-tests',
         cmd=' '.join([
-            'docker rm -f stoat-flutter-tests 2>/dev/null;',
-            'docker run --rm --name stoat-flutter-tests',
+            'docker rm -f censer-flutter-tests 2>/dev/null;',
+            'docker run --rm --name censer-flutter-tests',
             '--network=host',
             '-v %s:/app' % FLUTTER,
             '-v %s:/stoat-sdk-dart' % SDK_PATH,
-            'stoat-flutter-dev:latest',
+            'censer-flutter-dev:latest',
             'sh', '-c',
             '"flutter pub get && cd packages/app && flutter pub get' +
             ' && (chromedriver --port=4444 &) && sleep 2' +

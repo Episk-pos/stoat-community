@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: e2e-tests
-  namespace: stoat
+  namespace: censer
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 300

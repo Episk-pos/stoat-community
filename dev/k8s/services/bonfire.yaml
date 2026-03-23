@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bonfire
-  namespace: stoat
+  namespace: censer
 spec:
   replicas: 1
   selector:
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: bonfire
-          image: stoat-bonfire:dev
+          image: censer-bonfire:dev
           imagePullPolicy: Never
           ports:
             - containerPort: 14703
@@ -26,13 +26,13 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: stoat-config
+            name: censer-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: bonfire
-  namespace: stoat
+  namespace: censer
 spec:
   type: NodePort
   selector:

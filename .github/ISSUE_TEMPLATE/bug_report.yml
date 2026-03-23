@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a reproducible Stoat bug
+description: Report a reproducible Censer bug
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 body:

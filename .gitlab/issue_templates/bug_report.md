@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a reproducible Stoat bug
+about: Report a reproducible Censer bug
 title: "[BUG] "
 labels: ["bug", "needs triage"]
 ---

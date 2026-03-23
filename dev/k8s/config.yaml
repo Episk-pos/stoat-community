@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: stoat-config
-  namespace: stoat
+  name: censer-config
+  namespace: censer
 data:
   Revolt.overrides.toml: |
     [database]
-    mongodb = "mongodb://mongodb.stoat.svc:27017"
-    redis = "redis://redis.stoat.svc:6379/"
+    mongodb = "mongodb://mongodb.censer.svc:27017"
+    redis = "redis://redis.censer.svc:6379/"
 
     [rabbit]
-    host = "rabbitmq.stoat.svc"
+    host = "rabbitmq.censer.svc"
 
     [hosts]
     app = "http://localhost:5173"
@@ -27,11 +27,11 @@ data:
     [api]
 
     [api.smtp]
-    host = "maildev.stoat.svc"
+    host = "maildev.censer.svc"
     username = "smtp"
     password = "smtp"
-    from_address = "development@stoat.chat"
-    reply_to = "support@stoat.chat"
+    from_address = "development@episkopos.community"
+    reply_to = "support@episkopos.community"
     port = 25
     use_tls = false
     use_starttls = false
@@ -39,7 +39,7 @@ data:
     [api.livekit]
 
     [files.s3]
-    endpoint = "http://minio.stoat.svc:9000"
+    endpoint = "http://minio.censer.svc:9000"
     region = "minio"
     access_key_id = "minioautumn"
     secret_access_key = "minioautumn"
