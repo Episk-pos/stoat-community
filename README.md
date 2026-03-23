@@ -1,6 +1,12 @@
-# Episkopos Community
+<div align="center">
+  <h1>Episkopos Community</h1>
+  <p><em>Sovereign tools for communities that own their future</em></p>
 
-> Sovereign tools for communities that own their future
+  <p>
+    <a href="https://work.episkopos.community/episkopos/community/-/pipelines"><img src="https://work.episkopos.community/episkopos/community/badges/main/pipeline.svg" alt="Pipeline Status"></a>
+    <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
+  </p>
+</div>
 
 The development hub for the Episkopos suite — a collection of sovereign community tools: chat (Censer), knowledge browsing (Unveil), and platform migration (Postern).
 
