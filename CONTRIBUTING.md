@@ -21,3 +21,7 @@ Before submitting, ensure:
 
 ## Pull Requests
 We accept pull requests for documentation and process improvements in this repository.
+
+## Git Workflow for Forked Repos
+
+The `stoat-frontend` and `stoat-backend` repositories are forks of the upstream Stoat project. We maintain a specific branch structure to keep our changes separate from upstream code. See [docs/upstream-workflow.md](docs/upstream-workflow.md) for the full workflow, including how to sync upstream, contribute changes back, and manage local-only modifications.
