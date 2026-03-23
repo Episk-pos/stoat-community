@@ -1,12 +1,18 @@
-# Stoat Community
+# Episkopos Community
 
-Welcome to the central hub for the **Episkopos** community's **Stoat** fork(s).
+> Sovereign tools for communities that own their future
+
+The development hub for the Episkopos suite — a collection of sovereign community tools: chat (Censer), knowledge browsing (Unveil), and platform migration (Postern).
+
+Based on [Stoat](https://github.com/stoatchat/stoatchat), an open-source chat platform.
+
+**Part of the [Episkopos](https://episkopos.community) suite** — sovereign tools for communities.
 
 This repository is the source of truth for:
-- 🐛 **Bug Reports**
-- 💡 **Feature Requests**
-- 🎨 **UX Feedback**
-- 🔒 **Security Reports**
+- Bug Reports
+- Feature Requests
+- UX Feedback
+- Security Reports
 
 ## Service Status
 
@@ -15,7 +21,7 @@ Check real-time service health at **[status.episkopos.community](https://status.
 ## Where To File Issues
 Use **GitHub Issues** in this repository.
 
-1. [Open `New issue`](https://github.com/Episk-pos/stoat-community/issues/new/choose)
+1. [Open `New issue`](https://work.episkopos.community/episkopos/community/-/issues/new)
 2. Choose a template
 3. Fill all required sections
 
@@ -27,7 +33,7 @@ Available templates:
 
 ## Before Opening A New Issue
 1. Search existing issues to avoid duplicates.
-2. Confirm behavior on the latest available Stoat build.
+2. Confirm behavior on the latest available build.
 3. Collect evidence:
    - Reproduction steps
    - Screenshots or video
@@ -83,7 +89,7 @@ Higher-quality issue submissions reduce triage turnaround time.
 
 ## Dev Stack
 
-A full local development environment lives in [`dev/`](dev/). It runs the entire Stoat backend (Delta, Bonfire, Autumn, January) and infrastructure (MongoDB, Redis, MinIO, RabbitMQ, Maildev) locally, with the frontend Vite dev server running natively for fast HMR.
+A full local development environment lives in [`dev/`](dev/). It runs the entire Censer backend (powered by Stoat: Delta, Bonfire, Autumn, January) and infrastructure (MongoDB, Redis, MinIO, RabbitMQ, Maildev) locally, with the frontend Vite dev server running natively for fast HMR.
 
 **Two modes are available:**
 
@@ -127,7 +133,7 @@ just compose-seed        # Seed test data
 just compose-down        # Stop everything
 ```
 
-If `stoat-backend` or `stoat-frontend` aren't cloned as sibling directories, the Tilt UI will show clone buttons to set them up automatically.
+If the backend (`stoat-backend/`) or frontend (`stoat-frontend/`) directories aren't cloned as siblings, the Tilt UI will show clone buttons to set them up automatically.
 
 ### Commands
 
@@ -177,14 +183,14 @@ All services use the `14xxx` range to avoid conflicts with other dev stacks (Fra
 │  │ Vite dev :5173│  │ Flutter dev :5174│        │
 │  └───────────────┘  └──────────────────┘        │
 │                                                 │
-│  ┌─ Kind cluster (kind-stoat) ────────────────┐ │
-│  │  namespace: stoat                          │ │
-│  │                                            │ │    Kind/K8s
-│  │  delta:14702  bonfire:14703                │ │      mode
-│  │  autumn:14704  january:14705               │ │
-│  │                                            │ │
-│  │  redis  mongodb  minio  rabbitmq  maildev  │ │
-│  └────────────────────────────────────────────┘ │
+│  ┌─ Kind cluster (kind-censer) ──────────────┐  │
+│  │  namespace: censer                        │  │
+│  │                                           │  │    Kind/K8s
+│  │  delta:14702  bonfire:14703               │  │      mode
+│  │  autumn:14704  january:14705              │  │
+│  │                                           │  │
+│  │  redis  mongodb  minio  rabbitmq  maildev │  │
+│  └───────────────────────────────────────────┘  │
 │                  — or —                         │
 │  ┌─ Docker Compose ──────────────────────────┐  │
 │  │                                           │  │
