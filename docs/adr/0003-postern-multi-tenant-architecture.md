@@ -1,6 +1,6 @@
 # ADR-0003: Postern Multi-Tenant Architecture
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-23
 **Deciders:** Bryan White
 
@@ -84,30 +84,52 @@ The discord-stoat-sync project currently operates as a single-tenant tool: one d
 - Paid tier: continuous sync, higher limits, priority support
 - Billing integration TBD (Stripe likely)
 
+### Postern as Management Hub
+
+Postern serves as the **unified management interface** for communities that migrated from Discord. Beyond sync, it provides dashboard panels for managing the tenant's connected Censer instance and Unveil instance — all from the same authenticated session.
+
+This is a natural extension of Postern's role: communities escape Discord *through* Postern, and once through, they manage their sovereign stack from the same place. The `stoatFlavor` field on each tenant gates which management panels are visible:
+
+- **Standalone** (BYOS / generic Stoat): sync dashboard only
+- **Canonical** (self-hosted Censer): sync + Censer management
+- **Hosted** (Episkopos-managed Censer): sync + Censer management + Unveil management
+
+Dashboard modules are organized under tenant-scoped routes (`/dashboard/[tenantSlug]/censer/`, `/dashboard/[tenantSlug]/unveil/`) with clean boundaries, so they could be extracted into a separate app if the monolith ever needs splitting.
+
+### Scope Boundary: Fresh Censer Users
+
+Postern is **not** a universal portal for all Censer users. Communities that start fresh on Censer (no Discord migration) use Censer's native admin panel for management. Postern's management features are exclusively for tenants created through Postern's onboarding flow.
+
+This keeps Postern's scope honest — it is the escape hatch from centralized platforms, not a general-purpose admin console.
+
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│                  Postern Web UI              │
-│              (Next.js frontend)              │
-├──────────┬──────────────┬───────────────────┤
-│ Discord  │   Sync       │   Billing         │
-│ OAuth +  │   Dashboard  │   Management      │
-│ Server   │   & Config   │   (future)        │
-│ Picker   │              │                   │
-├──────────┴──────────────┴───────────────────┤
-│                Postern API                   │
-│           (Next.js API routes)               │
-├──────────┬──────────────┬───────────────────┤
-│ Auth     │   Sync       │   Tenant          │
-│ Service  │   Engine     │   Management      │
-├──────────┴──────────────┴───────────────────┤
-│              Prisma + PostgreSQL             │
-│         (multi-tenant, row-scoped)           │
-├──────────┬──────────────────────────────────┤
-│ Discord  │  Censer/Stoat APIs               │
-│ Bot API  │  (destination instances)          │
-└──────────┴──────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                      Postern Web UI                       │
+│                    (Next.js frontend)                     │
+├──────────┬──────────┬──────────┬──────────┬──────────────┤
+│ Discord  │  Sync    │ Censer   │ Unveil   │  Billing     │
+│ OAuth +  │  Dash &  │ Mgmt     │ Mgmt     │  Management  │
+│ Server   │  Config  │ (gated)  │ (gated)  │  (future)    │
+│ Picker   │          │          │          │              │
+├──────────┴──────────┴──────────┴──────────┴──────────────┤
+│                       Postern API                         │
+│                  (Next.js API routes)                     │
+├──────────┬──────────┬──────────┬─────────────────────────┤
+│ Auth     │  Sync    │  Tenant  │  Product Management     │
+│ Service  │  Engine  │  Mgmt    │  (Censer + Unveil APIs) │
+├──────────┴──────────┴──────────┴─────────────────────────┤
+│                  Prisma + PostgreSQL                      │
+│              (multi-tenant, row-scoped)                   │
+├──────────┬──────────────────┬────────────────────────────┤
+│ Discord  │  Censer/Stoat    │  Unveil                    │
+│ Bot API  │  APIs (dest +    │  API                       │
+│          │  management)     │  (knowledge browser)       │
+└──────────┴──────────────────┴────────────────────────────┘
+
+Visibility of Censer/Unveil management panels is gated by stoatFlavor:
+  standalone → sync only | canonical → + Censer | hosted → + Censer + Unveil
 ```
 
 ## Consequences
@@ -119,6 +141,8 @@ The discord-stoat-sync project currently operates as a single-tenant tool: one d
 - No 100-server ceiling or Discord verification dependency
 - Revenue potential from hosted service
 - Reusable OAuth infrastructure for Censer integration later
+- Single auth flow: community managers sign in once (Discord OAuth) and manage sync, Censer, and Unveil from one dashboard
+- Progressive disclosure via stoatFlavor — standalone users see a focused sync tool; full suite users see everything
 
 ### Negative
 - Slightly more onboarding friction than a managed bot (user must create a bot at Discord Developer Portal)
@@ -138,3 +162,4 @@ The discord-stoat-sync project currently operates as a single-tenant tool: one d
 - [Upstream Git Workflow](../../) — how we manage stoat-frontend/backend forks
 - Episkopos branding — Censer (chat), Unveil (knowledge browser), Postern (migration)
 - Censer OAuth provider — prerequisite for full Censer integration (tracked separately)
+- Postern as management hub — Postern manages the full stack for migrated communities; fresh Censer users use native admin
