@@ -11,8 +11,8 @@ set dotenv-load := false
 
 STOAT_BACKEND := env("STOAT_BACKEND", justfile_directory() + "/../../stoat-backend")
 STOAT_FRONTEND := env("STOAT_FRONTEND", justfile_directory() + "/../../stoat-frontend")
-CLUSTER := "stoat"
-CONTEXT := "kind-stoat"
+CLUSTER := "censer"
+CONTEXT := "kind-censer"
 
 # Show available commands
 default:
@@ -59,7 +59,7 @@ up-shared:
 
     # Deterministic Tilt API port from context/namespace seed (avoids collisions
     # when multiple Tilt stacks run concurrently).
-    SEED="{{ CONTEXT }}/stoat"
+    SEED="{{ CONTEXT }}/censer"
     PORT_OFFSET=$(( $(echo -n "$SEED" | cksum | cut -d' ' -f1) % 50 * 20 ))
     TILT_PORT=$(( 10350 + PORT_OFFSET ))
 
@@ -107,15 +107,15 @@ status:
     @echo "=== Kind clusters ==="
     @kind get clusters 2>/dev/null || true
     @echo ""
-    @echo "=== Pods in stoat namespace ==="
-    @kubectl --context {{ CONTEXT }} get pods -n stoat 2>/dev/null || echo "(cluster not running)"
+    @echo "=== Pods in censer namespace ==="
+    @kubectl --context {{ CONTEXT }} get pods -n censer 2>/dev/null || echo "(cluster not running)"
     @echo ""
     @echo "=== Tilt resources ==="
     @cd {{ justfile_directory() }} && tilt get uiresources 2>/dev/null || echo "(tilt not running)"
 
 # Tail logs for a service
 logs service:
-    kubectl --context {{ CONTEXT }} logs -n stoat -l app={{ service }} -f
+    kubectl --context {{ CONTEXT }} logs -n censer -l app={{ service }} -f
 
 # Create the Kind cluster
 kind-create:
@@ -155,7 +155,7 @@ up-shared-prebuilt: pull-images
     fi
     kubectl config use-context {{ CONTEXT }}
 
-    SEED="{{ CONTEXT }}/stoat"
+    SEED="{{ CONTEXT }}/censer"
     PORT_OFFSET=$(( $(echo -n "$SEED" | cksum | cut -d' ' -f1) % 50 * 20 ))
     TILT_PORT=$(( 10350 + PORT_OFFSET ))
 
