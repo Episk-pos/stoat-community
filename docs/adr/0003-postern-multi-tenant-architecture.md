@@ -82,7 +82,62 @@ The discord-stoat-sync project currently operates as a single-tenant tool: one d
 
 - Free tier: one-shot migration up to N messages / N channels
 - Paid tier: continuous sync, higher limits, priority support
-- Billing integration TBD (Stripe likely)
+- Billing integration: Stripe (likely), delivered via open-core model (see below)
+
+### Open-Core Billing Model
+
+Billing and subscription logic live in a **private repository** (`postern-cloud`), not in the AGPL-licensed open-source repo. The open-source repo defines a `LicenseProvider` interface:
+
+- `canAccessProduct(tenantId, product)` — can this tenant use Censer/Unveil management?
+- `getSubscriptionTier(tenantId)` — free, paid, enterprise?
+- `getUsageLimits(tenantId)` — message count caps, channel limits, etc.
+
+The **default implementation** returns "full access" — self-hosted users get everything unlocked with no billing gate. The private repo provides a Stripe-backed implementation injected at deployment time.
+
+**Rationale:** The sync engine is community value worth protecting with AGPL. Billing is business infrastructure — putting it in an AGPL repo hands competitors the entire commercial stack for free.
+
+### Deployment Modes
+
+Postern supports three deployment modes (mutually exclusive), configured via `POSTERN_MODE`:
+
+| Mode | Operator | Tenancy | Billing |
+|---|---|---|---|
+| `self-hosted-single` | Community manager | Single tenant | No |
+| `self-hosted-multi` | Organization | Multi-tenant | Optional |
+| `cloud-hosted` | Episkopos | Multi-tenant | Yes |
+
+Product availability is declared at the deployment level via environment variables:
+
+```
+POSTERN_MODE=cloud-hosted
+CENSER_AVAILABLE=true
+CENSER_API_URL=https://...
+UNVEIL_AVAILABLE=true
+UNVEIL_API_URL=https://...
+BILLING_ENABLED=true
+```
+
+### Product Visibility State Machine
+
+Each product (Censer, Unveil) has four possible states per tenant:
+
+1. **Not available** — product not deployed in this environment → hidden entirely
+2. **Available, not subscribed** — billing enabled, tenant hasn't paid → upsell card with pricing
+3. **Subscribed, not connected** — tenant has access, hasn't completed setup → setup wizard
+4. **Active** — connected and operational → full management panel
+
+For non-commercial deployments (`BILLING_ENABLED=false`), states 2–3 collapse: if a product is available, it's accessible immediately (no billing gate).
+
+```
+UI logic:
+  not available         → hide
+  available + billing
+    + !subscribed       → upsell card (content from billing service API)
+  available + (!billing
+    || subscribed)
+    + !connected        → setup wizard
+  connected             → management panel
+```
 
 ### Postern as Management Hub
 
@@ -128,8 +183,13 @@ This keeps Postern's scope honest — it is the escape hatch from centralized pl
 │          │  management)     │  (knowledge browser)       │
 └──────────┴──────────────────┴────────────────────────────┘
 
-Visibility of Censer/Unveil management panels is gated by stoatFlavor:
-  standalone → sync only | canonical → + Censer | hosted → + Censer + Unveil
+Product visibility gated by deployment config + LicenseProvider:
+  not available → hide | available + !subscribed → upsell
+  subscribed + !connected → setup | connected → management panel
+
+LicenseProvider interface (open-core):
+  Default impl: full access (self-hosted, no billing)
+  Private impl: Stripe-backed (cloud-hosted, commercial)
 ```
 
 ## Consequences
@@ -163,3 +223,5 @@ Visibility of Censer/Unveil management panels is gated by stoatFlavor:
 - Episkopos branding — Censer (chat), Unveil (knowledge browser), Postern (migration)
 - Censer OAuth provider — prerequisite for full Censer integration (tracked separately)
 - Postern as management hub — Postern manages the full stack for migrated communities; fresh Censer users use native admin
+- Open-core billing — billing logic in private `postern-cloud` repo; open-source repo defines `LicenseProvider` interface with default "full access"
+- Deployment modes — three modes (self-hosted-single, self-hosted-multi, cloud-hosted) with independent billing axis
