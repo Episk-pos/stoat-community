@@ -1,24 +1,111 @@
 <div align="center">
+  <img src="brand/episkopos/og-card.png" alt="Episkopos" width="600">
+
   <h1>Episkopos Community</h1>
-  <p><em>Sovereign tools for communities that own their future</em></p>
+  <em>Sovereign tools for communities that own their future</em>
 
   <p>
     <a href="https://work.episkopos.community/episkopos/community/-/pipelines"><img src="https://work.episkopos.community/episkopos/community/badges/main/pipeline.svg" alt="Pipeline Status"></a>
     <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
   </p>
+
+  <h3>
+    <a href="https://episkopos.community">episkopos.community</a>
+  </h3>
 </div>
 
-The development hub for the Episkopos suite — a collection of sovereign community tools: chat (Censer), knowledge browsing (Unveil), and platform migration (Postern).
+A suite of sovereign, self-hosted tools for online communities. Episkopos puts
+ownership back in the hands of the people who use it — no platform lock-in, no
+data extraction, no compromises.
 
 Based on [Stoat](https://github.com/stoatchat/stoatchat), an open-source chat platform.
 
 **Part of the [Episkopos](https://episkopos.community) suite** — sovereign tools for communities.
 
-This repository is the source of truth for:
+This repository is the development hub and source of truth for:
 - Bug Reports
 - Feature Requests
 - UX Feedback
 - Security Reports
+
+## Products
+
+<!-- Censer -->
+
+<div align="center">
+  <img src="brand/censer/hero.jpg" alt="Censer" width="720">
+</div>
+
+<table>
+  <tr>
+    <td width="140" align="center">
+      <img src="brand/censer/icon.png" alt="Censer" width="128" height="128">
+    </td>
+    <td>
+      <h3>Censer</h3>
+      <em>The Sacred Vessel of Communication</em><br><br>
+      Real-time chat platform built for communities that refuse to rent their conversations from corporations. Self-hosted, federated-ready, and fully open source.
+    </td>
+  </tr>
+</table>
+
+<!-- Unveil -->
+
+<div align="center">
+  <img src="brand/unveil/hero.jpg" alt="Unveil" width="720">
+</div>
+
+<table>
+  <tr>
+    <td width="140" align="center">
+      <img src="brand/unveil/icon.png" alt="Unveil" width="128" height="128">
+    </td>
+    <td>
+      <h3>Unveil</h3>
+      <em>Draw Back the Veil</em><br><br>
+      Community knowledge browser that surfaces collective wisdom. Browse, search, and preserve the conversations and decisions that define your community.
+    </td>
+  </tr>
+</table>
+
+<!-- Postern -->
+
+<div align="center">
+  <img src="brand/postern/hero.jpg" alt="Postern" width="720">
+</div>
+
+<table>
+  <tr>
+    <td width="140" align="center">
+      <img src="brand/postern/icon.png" alt="Postern" width="128" height="128">
+    </td>
+    <td>
+      <h3>Postern</h3>
+      <em>The Quiet Side Gate</em><br><br>
+      Migration and synchronisation tool that lets communities leave legacy platforms on their own terms. Export, transform, and import — no data left behind.
+    </td>
+  </tr>
+</table>
+
+## Quick Links
+
+| | |
+|---|---|
+| **Landing site** | [episkopos.community](https://episkopos.community) |
+| **GitLab** | [work.episkopos.community/episkopos](https://work.episkopos.community/episkopos) |
+| **GitHub mirror** | [github.com/episk-pos](https://github.com/episk-pos) |
+| **Contact** | [contact@episkopos.community](mailto:contact@episkopos.community) |
+
+## Repositories
+
+| Repository | Product | Description |
+|------------|---------|-------------|
+| [censer-web](https://work.episkopos.community/episkopos/censer-web) | Censer | Web client (SolidJS + Vite) |
+| [stoat-backend](https://work.episkopos.community/episkopos/stoat-backend) | Censer | API server (Rust) |
+| [censer-flutter](https://work.episkopos.community/episkopos/censer-flutter) | Censer | Mobile client (Flutter) |
+| [censer-sdk-dart](https://work.episkopos.community/episkopos/censer-sdk-dart) | Censer | Dart SDK |
+| [knowledge-browser](https://work.episkopos.community/episkopos/knowledge-browser) | Unveil | Knowledge archive (Elixir + Phoenix) |
+| [discord-stoat-sync](https://work.episkopos.community/episkopos/discord-stoat-sync) | Postern | Migration tool (TypeScript) |
 
 ## Service Status
 
