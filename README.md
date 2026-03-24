@@ -101,11 +101,11 @@ This repository is the development hub and source of truth for:
 | Repository | Product | Description |
 |------------|---------|-------------|
 | [censer-web](https://work.episkopos.community/episkopos/censer-web) | Censer | Web client (SolidJS + Vite) |
-| [stoat-backend](https://work.episkopos.community/episkopos/stoat-backend) | Censer | API server (Rust) |
+| [censer-backend](https://work.episkopos.community/episkopos/censer-backend) | Censer | API server (Rust) |
 | [censer-flutter](https://work.episkopos.community/episkopos/censer-flutter) | Censer | Mobile client (Flutter) |
 | [censer-sdk-dart](https://work.episkopos.community/episkopos/censer-sdk-dart) | Censer | Dart SDK |
-| [knowledge-browser](https://work.episkopos.community/episkopos/knowledge-browser) | Unveil | Knowledge archive (Elixir + Phoenix) |
-| [discord-stoat-sync](https://work.episkopos.community/episkopos/discord-stoat-sync) | Postern | Migration tool (TypeScript) |
+| [unveil](https://work.episkopos.community/episkopos/unveil) | Unveil | Knowledge archive (Elixir + Phoenix) |
+| [postern](https://work.episkopos.community/episkopos/postern) | Postern | Migration tool (TypeScript) |
 
 ## Service Status
 
@@ -226,7 +226,7 @@ just compose-seed        # Seed test data
 just compose-down        # Stop everything
 ```
 
-If the backend (`stoat-backend/`) or frontend (`stoat-frontend/`) directories aren't cloned as siblings, the Tilt UI will show clone buttons to set them up automatically.
+If the backend (`censer-backend/`) or frontend (`censer-web/`) directories aren't cloned as siblings, the Tilt UI will show clone buttons to set them up automatically.
 
 ### Commands
 
