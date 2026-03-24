@@ -353,7 +353,7 @@ elif not COMPOSE:
     # --- Enabled and cloned (K8s mode): deploy KB using shared module ---
     _kb = load_dynamic(KB_PATH + '/tilt_lib.star')
     _kb['kb_docker_build'](KB_PATH)
-    _kb['kb_k8s_resources'](KB_PATH, variant='stoat',
+    _kb['kb_k8s_resources'](KB_PATH, variant='censer',
                             labels=['knowledge-browser'],
                             resource_deps=['mongodb'])
 
@@ -440,7 +440,7 @@ elif not COMPOSE:
     # --- Enabled and cloned (K8s mode): deploy DSS using shared module ---
     _dss = load_dynamic(DSS_PATH + '/tilt_lib.star')
     _dss['dss_docker_build'](DSS_PATH)
-    _dss['dss_k8s_resources'](DSS_PATH, variant='stoat',
+    _dss['dss_k8s_resources'](DSS_PATH, variant='censer',
                               labels=['discord-stoat-sync'])
 
     # Button to disable

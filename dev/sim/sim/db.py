@@ -10,7 +10,7 @@ from .models import SimUser
 _ph = PasswordHasher()
 
 # Sim users use a recognizable email pattern
-SIM_EMAIL_DOMAIN = "sim.stoat.local"
+SIM_EMAIL_DOMAIN = "sim.censer.local"
 SIM_PASSWORD = "SimUser#2026!"
 
 

@@ -33,23 +33,23 @@ Add `config.define_bool('knowledge-browser')` and a new section at the bottom:
 **When enabled and cloned**:
 1. `docker_build('kb-app', KB_PATH, ...)` with live_update (same pattern as
    KB's own Tiltfile — sync lib/, config/, priv/, assets/)
-2. Deploy KB postgres + app into the `stoat` KinD cluster's `stoat` namespace
+2. Deploy KB postgres + app into the `censer` KinD cluster's `censer` namespace
 3. Wire up `k8s_resource` with:
    - Port forward `4002:4000` for KB web UI
    - Labels `['knowledge-browser']`
    - `resource_deps` on KB postgres
 4. Set env vars on the KB deployment:
-   - `DATABASE_URL` → KB's own postgres (`kb-postgres.stoat.svc:5432`)
-   - `STOAT_MONGO_URL` → `mongodb://mongodb.stoat.svc:27017` (Stoat's MongoDB)
-   - `AUTUMN_BASE_URL` → `http://autumn.stoat.svc:14704` (Stoat file service)
-   - `JANUARY_BASE_URL` → `http://january.stoat.svc:14705` (Stoat embed service)
+   - `DATABASE_URL` → KB's own postgres (`kb-postgres.censer.svc:5432`)
+   - `STOAT_MONGO_URL` → `mongodb://mongodb.censer.svc:27017` (Stoat's MongoDB)
+   - `AUTUMN_BASE_URL` → `http://autumn.censer.svc:14704` (Stoat file service)
+   - `JANUARY_BASE_URL` → `http://january.censer.svc:14705` (Stoat embed service)
 
 ### K8s Manifests
 
 Create `dev/k8s/knowledge-browser/` with adapted manifests:
-- `postgres.yaml` — KB postgres in `stoat` namespace (service name `kb-postgres`)
-- `app.yaml` — KB deployment in `stoat` namespace with env vars pointing to
-  stoat infra
+- `postgres.yaml` — KB postgres in `censer` namespace (service name `kb-postgres`)
+- `app.yaml` — KB deployment in `censer` namespace with env vars pointing to
+  censer infra
 
 ### No kind-config.yaml Changes Needed
 

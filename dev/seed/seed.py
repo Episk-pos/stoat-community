@@ -24,7 +24,7 @@ from urllib.error import HTTPError, URLError
 # ---------------------------------------------------------------------------
 
 DELTA_URL = os.environ.get("DELTA_URL", "http://localhost:14702")
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://mongodb.stoat.svc:27017")
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://mongodb.censer.svc:27017")
 DB_NAME = "revolt"
 
 # Deterministic IDs (26-char alphanumeric, matching Revolt's ULID format)
@@ -34,21 +34,21 @@ TEST_PASSWORD = "StoatDev#2026!"
 USER_SPECS = [
     {
         "id": "01KKEJRMR73ABFWKAH17JT6SVW",
-        "email": "alice@dev.stoat.local",
+        "email": "alice@dev.censer.local",
         "username": "alice",
         "display_name": "Alice",
         "password": TEST_PASSWORD,
     },
     {
         "id": "01KKEJRMR77B769PVC3EGB7SFR",
-        "email": "bob@dev.stoat.local",
+        "email": "bob@dev.censer.local",
         "username": "bob",
         "display_name": "Bob",
         "password": TEST_PASSWORD,
     },
     {
         "id": "01KKEJRMR78VEK67QFZPAZ56CD",
-        "email": "carol@dev.stoat.local",
+        "email": "carol@dev.censer.local",
         "username": "carol",
         "display_name": "Carol",
         "password": TEST_PASSWORD,
