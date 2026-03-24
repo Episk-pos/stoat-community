@@ -39,10 +39,10 @@ This repository is the development hub and source of truth for:
 <table>
   <tr>
     <td width="140" align="center">
-      <img src="brand/censer/icon.png" alt="Censer" width="128" height="128">
+      <a href="https://censer.chat" target="_blank"><img src="brand/censer/icon.png" alt="Censer" width="128" height="128"></a>
     </td>
     <td>
-      <h3>Censer</h3>
+      <h3><a href="https://censer.chat" target="_blank">Censer</a></h3>
       <em>The Sacred Vessel of Communication</em><br><br>
       Real-time chat platform built for communities that refuse to rent their conversations from corporations. Self-hosted, federated-ready, and fully open source.
     </td>
@@ -58,10 +58,10 @@ This repository is the development hub and source of truth for:
 <table>
   <tr>
     <td width="140" align="center">
-      <img src="brand/unveil/icon.png" alt="Unveil" width="128" height="128">
+      <a href="https://unveil.community" target="_blank"><img src="brand/unveil/icon.png" alt="Unveil" width="128" height="128"></a>
     </td>
     <td>
-      <h3>Unveil</h3>
+      <h3><a href="https://unveil.community" target="_blank">Unveil</a></h3>
       <em>Draw Back the Veil</em><br><br>
       Community knowledge browser that surfaces collective wisdom. Browse, search, and preserve the conversations and decisions that define your community.
     </td>
@@ -77,10 +77,10 @@ This repository is the development hub and source of truth for:
 <table>
   <tr>
     <td width="140" align="center">
-      <img src="brand/postern/icon.png" alt="Postern" width="128" height="128">
+      <a href="https://dashboard.episkopos.community" target="_blank"><img src="brand/postern/icon.png" alt="Postern" width="128" height="128"></a>
     </td>
     <td>
-      <h3>Postern</h3>
+      <h3><a href="https://dashboard.episkopos.community" target="_blank">Postern</a></h3>
       <em>The Quiet Side Gate</em><br><br>
       Migration and synchronisation tool that lets communities leave legacy platforms on their own terms. Export, transform, and import — no data left behind.
     </td>
