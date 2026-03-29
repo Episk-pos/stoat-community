@@ -7,12 +7,12 @@
 #   ./scripts/pull-images.sh main-1234567890-abc # specific tag
 #
 # Environment:
-#   CENSER_REGISTRY  Override registry path (default: registry.episkopos.community/episkopos/stoat-backend)
+#   CENSER_REGISTRY  Override registry path (default: registry.episkopos.community/episkopos/censer-backend)
 #   CENSER_CLUSTER   KinD cluster name (default: censer). Set to "" to skip kind load.
 #   CENSER_NO_KIND   Set to "1" to skip loading images into KinD (e.g. for Compose mode)
 set -euo pipefail
 
-REGISTRY="${CENSER_REGISTRY:-registry.episkopos.community/episkopos/stoat-backend}"
+REGISTRY="${CENSER_REGISTRY:-registry.episkopos.community/episkopos/censer-backend}"
 TAG="${1:-latest}"
 CLUSTER="${CENSER_CLUSTER:-censer}"
 NO_KIND="${CENSER_NO_KIND:-0}"
