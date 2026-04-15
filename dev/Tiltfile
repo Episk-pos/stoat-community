@@ -524,6 +524,43 @@ print('Activity Simulator disabled. Tiltfile will re-evaluate...')
     )
 
 # ---------------------------------------------------------------------------
+# Dev Environment Discovery — Register with shared discovery system
+# ---------------------------------------------------------------------------
+# These resources allow sibling containers (like the assistant runtime) to
+# discover this Tilt environment's services and API endpoint.
+# ---------------------------------------------------------------------------
+
+if not COMPOSE:
+    # Calculate deterministic port offset from context/namespace seed (matching justfile logic)
+    _seed = '%s/censer' % k8s_context()
+    _cksum_output = str(local('echo -n "%s" | cksum' % _seed, quiet=True)).strip()
+    _cksum_value = int(_cksum_output.split(' ')[0])
+    _port_offset = (_cksum_value % 50) * 20
+    _tilt_port = 10350 + _port_offset
+
+    _services_json = '{"mongodb": {"host_port": 14717, "container_port": 27017}, "minio": {"host_port": 14009, "container_port": 9000}, "rabbitmq": {"host_port": 14672, "container_port": 15672}, "maildev": {"host_port": 14080, "container_port": 8080}}'
+
+    # Register environment in shared discovery directory
+    local_resource(
+        'devenv-register',
+        cmd="python3 ../../assistant/tools/devenv/register.py --context '%s' --namespace 'censer' --project 'stoat' --tilt-port %d --port-offset %d --services '%s'" % (
+            k8s_context(), _tilt_port, _port_offset, _services_json,
+        ),
+        auto_init=True,
+        trigger_mode=TRIGGER_MODE_MANUAL,
+        labels=['setup'],
+    )
+
+    # Export kubeconfigs for all sibling KinD clusters
+    local_resource(
+        'kind-kubeconfigs',
+        cmd='python3 ../../assistant/tools/devenv/kind_kubeconfig.py export-all',
+        auto_init=True,
+        trigger_mode=TRIGGER_MODE_MANUAL,
+        labels=['setup'],
+    )
+
+# ---------------------------------------------------------------------------
 # E2E Tests — Gherkin/Playwright cross-repo test suite (disabled by default)
 # ---------------------------------------------------------------------------
 # Toggle via: tilt args -- --e2e-tests

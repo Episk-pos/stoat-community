@@ -42,20 +42,14 @@ setup:
 up:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
-        just kind-create
-    fi
-    kubectl config use-context {{ CONTEXT }}
+    just ensure-cluster
     cd {{ justfile_directory() }} && tilt up
 
 # Start dev stack with Tilt API bound to Docker bridge (accessible from sibling KinD containers)
 up-shared:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
-        just kind-create
-    fi
-    kubectl config use-context {{ CONTEXT }}
+    just ensure-cluster
 
     # Deterministic Tilt API port from context/namespace seed (avoids collisions
     # when multiple Tilt stacks run concurrently).
@@ -128,6 +122,20 @@ kind-create:
         echo "Cluster '{{ CLUSTER }}' created."
     fi
 
+# Ensure Kind cluster and kubeconfig context exist
+ensure-cluster:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
+        just kind-create
+    fi
+    # Re-export kubeconfig if context is missing (e.g. after Docker restart)
+    if ! kubectl config get-contexts {{ CONTEXT }} &>/dev/null; then
+        echo "Context '{{ CONTEXT }}' missing — re-exporting kubeconfig..."
+        kind export kubeconfig --name {{ CLUSTER }}
+    fi
+    kubectl config use-context {{ CONTEXT }}
+
 # Delete the Kind cluster
 kind-delete:
     kind delete cluster --name {{ CLUSTER }}
@@ -140,20 +148,14 @@ pull-images tag="latest":
 up-prebuilt: pull-images
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
-        just kind-create
-    fi
-    kubectl config use-context {{ CONTEXT }}
+    just ensure-cluster
     cd {{ justfile_directory() }} && tilt up -- --prebuilt
 
 # Start dev stack with pre-built images, Tilt API on Docker bridge
 up-shared-prebuilt: pull-images
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! kind get clusters 2>/dev/null | grep -q "^{{ CLUSTER }}$"; then
-        just kind-create
-    fi
-    kubectl config use-context {{ CONTEXT }}
+    just ensure-cluster
 
     SEED="{{ CONTEXT }}/censer"
     PORT_OFFSET=$(( $(echo -n "$SEED" | cksum | cut -d' ' -f1) % 50 * 20 ))
