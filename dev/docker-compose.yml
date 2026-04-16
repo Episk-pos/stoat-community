@@ -96,7 +96,7 @@ services:
     restart: "no"
 
   postgres:
-    image: postgres:17-alpine
+    image: registry.episkopos.community/bryanchriswhite/chat/postgres:17-alpine
     ports:
       - "5432:5432"
     environment:
