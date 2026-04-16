@@ -4,6 +4,8 @@ redis = "redis://redis:6379/"
 
 [rabbit]
 host = "rabbitmq"
+username = "rabbituser"
+password = "rabbitpass"
 
 [hosts]
 app = "http://localhost:5173"
