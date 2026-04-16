@@ -52,6 +52,31 @@ services:
   minio-init:
     restart: "no"
 
+  postgres:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  postern:
+    ports: []  # No port exposure in CI
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  unveil:
+    ports: []  # No port exposure in CI
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
   delta:
     restart: "no"
     deploy:

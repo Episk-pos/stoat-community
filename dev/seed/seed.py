@@ -66,6 +66,11 @@ SERVER_SPECS = [
         "description": "UI/UX design work",
         "channels": ["feedback", "mockups"],
     },
+    {
+        "name": "Test Community",
+        "description": "Test server for billing integration scenarios",
+        "channels": ["general", "announcements"],
+    },
 ]
 
 SAMPLE_MESSAGES = [
