@@ -27,21 +27,21 @@ services:
   # Infrastructure
   # ---------------------------------------------------------------------------
   redis:
-    image: eqalpha/keydb
+    image: registry.episkopos.community/episkopos/community/keydb:latest
     ports:
       - "6379:6379"
     # Dev/CI password - production uses secrets management
     command: keydb-server --requirepass redisdev --protected-mode no
 
   mongodb:
-    image: mongo
+    image: registry.episkopos.community/episkopos/community/mongo:8
     ports:
       - "14717:27017"
     volumes:
       - mongodb-data:/data/db
 
   rabbitmq:
-    image: rabbitmq:4-management
+    image: registry.episkopos.community/episkopos/community/rabbitmq:4-management
     ports:
       - "5672:5672"
       - "14672:15672"
@@ -55,7 +55,7 @@ services:
       retries: 5
 
   maildev:
-    image: maildev/maildev
+    image: registry.episkopos.community/episkopos/community/maildev:latest
     ports:
       - "14025:25"
       - "14080:8080"
@@ -66,7 +66,7 @@ services:
       MAILDEV_INCOMING_PASS: smtp
 
   minio:
-    image: minio/minio
+    image: registry.episkopos.community/episkopos/community/minio:latest
     command: ["minio", "server", "/data"]
     ports:
       - "14009:9000"
@@ -83,7 +83,7 @@ services:
       retries: 5
 
   minio-init:
-    image: minio/mc
+    image: registry.episkopos.community/episkopos/community/mc:latest
     depends_on:
       minio:
         condition: service_healthy
@@ -96,7 +96,7 @@ services:
     restart: "no"
 
   postgres:
-    image: registry.episkopos.community/bryanchriswhite/chat/postgres:17-alpine
+    image: registry.episkopos.community/episkopos/community/postgres:17-alpine
     ports:
       - "5432:5432"
     environment:
