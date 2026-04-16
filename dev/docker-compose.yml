@@ -30,7 +30,9 @@ services:
     image: eqalpha/keydb
     ports:
       - "6379:6379"
-    command: ["keydb-server", "--bind", "0.0.0.0", "--requirepass", "redisdev"]
+    volumes:
+      - ./config/redis.conf:/etc/keydb/redis.conf:ro
+    command: ["keydb-server", "/etc/keydb/redis.conf"]
     healthcheck:
       test: ["CMD", "keydb-cli", "-a", "redisdev", "ping"]
       interval: 5s
