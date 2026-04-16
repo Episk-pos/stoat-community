@@ -53,6 +53,9 @@ services:
     restart: "no"
 
   postgres:
+    # Override volumes: DinD can't mount host files, so we remove the init
+    # script volume and run database setup via docker exec after startup
+    volumes: []
     restart: "no"
     deploy:
       resources:
