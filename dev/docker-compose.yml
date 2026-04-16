@@ -30,6 +30,8 @@ services:
     image: eqalpha/keydb
     ports:
       - "6379:6379"
+    # Dev/CI password - production uses secrets management
+    command: keydb-server --requirepass redisdev
 
   mongodb:
     image: mongo
