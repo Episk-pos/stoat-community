@@ -53,9 +53,10 @@ services:
     restart: "no"
 
   postgres:
-    # Override volumes: DinD can't mount host files, so we remove the init
-    # script volume and run database setup via docker exec after startup
-    volumes: []
+    # Override volumes: DinD can't mount host files, so we clear the init
+    # script volume and run database setup via docker exec after startup.
+    # !reset is required — plain `volumes: []` merges (no-op) in Compose v2.
+    volumes: !reset []
     restart: "no"
     deploy:
       resources:
