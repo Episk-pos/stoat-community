@@ -89,6 +89,10 @@ services:
           memory: 512M
 
   bonfire:
+    environment:
+      # Skip clear_region on startup — it panics if Redis isn't instantly
+      # reachable, which is racy in DinD even with healthchecks.
+      NO_CLEAR_PRESENCE: "1"
     restart: "no"
     deploy:
       resources:
