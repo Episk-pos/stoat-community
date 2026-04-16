@@ -31,8 +31,8 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./config/redis.conf:/etc/keydb/redis.conf:ro
-    command: ["keydb-server", "/etc/keydb/redis.conf"]
+      - ./config/redis.conf:/redis.conf:ro
+    command: ["keydb-server", "/redis.conf"]
     healthcheck:
       test: ["CMD", "keydb-cli", "-a", "redisdev", "ping"]
       interval: 5s
@@ -101,6 +101,21 @@ services:
         mc mb --ignore-existing censer/revolt-uploads
     restart: "no"
 
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/postgres-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # ---------------------------------------------------------------------------
   # Application services
   # ---------------------------------------------------------------------------
@@ -163,6 +178,52 @@ services:
         condition: service_healthy
       mongodb:
         condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # Postern (discord-stoat-sync) — Optional migration/sync service
+  # ---------------------------------------------------------------------------
+  postern:
+    build:
+      context: ../../discord-stoat-sync
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://stoatsync:stoatsync@postgres:5432/discord_stoat_sync
+      CENSER_API_URL: http://delta:14702
+      CENSER_BASE_URL: http://localhost:5173
+      UNVEIL_API_URL: http://unveil:4000
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      delta:
+        condition: service_started
+    profiles:
+      - postern
+
+  # ---------------------------------------------------------------------------
+  # Unveil (knowledge-browser) — Optional knowledge archive service
+  # ---------------------------------------------------------------------------
+  unveil:
+    build:
+      context: ../../knowledge-browser
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://unveil:unveil@postgres:5432/unveil_dev
+      SECRET_KEY_BASE: "${UNVEIL_SECRET_KEY_BASE:-dev-secret-change-in-production-12345678901234567890123456789012}"
+      PHX_HOST: localhost
+      CENSER_MONGO_URL: mongodb://mongodb:27017/stoat
+      PORT: "4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+    profiles:
+      - unveil
 
   # ---------------------------------------------------------------------------
   # Seed — only runs with: docker compose --profile seed up
