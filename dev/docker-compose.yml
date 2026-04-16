@@ -30,14 +30,6 @@ services:
     image: eqalpha/keydb
     ports:
       - "6379:6379"
-    volumes:
-      - ./config/redis.conf:/redis.conf:ro
-    command: ["keydb-server", "/redis.conf"]
-    healthcheck:
-      test: ["CMD", "keydb-cli", "-a", "redisdev", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
   mongodb:
     image: mongo
@@ -128,7 +120,7 @@ services:
       - "14702:14702"
     depends_on:
       redis:
-        condition: service_healthy
+        condition: service_started
       mongodb:
         condition: service_started
       minio-init:
@@ -145,7 +137,7 @@ services:
       - "14703:14703"
     depends_on:
       redis:
-        condition: service_healthy
+        condition: service_started
       mongodb:
         condition: service_started
       rabbitmq:
@@ -160,7 +152,7 @@ services:
       - "14704:14704"
     depends_on:
       redis:
-        condition: service_healthy
+        condition: service_started
       mongodb:
         condition: service_started
       minio-init:
@@ -175,7 +167,7 @@ services:
       - "14705:14705"
     depends_on:
       redis:
-        condition: service_healthy
+        condition: service_started
       mongodb:
         condition: service_started
 
