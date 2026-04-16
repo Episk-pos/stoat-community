@@ -30,6 +30,7 @@ services:
     image: eqalpha/keydb
     ports:
       - "6379:6379"
+    command: ["keydb-server", "--requirepass", "redisdev", "--protected-mode", "no"]
 
   mongodb:
     image: mongo
