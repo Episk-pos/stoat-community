@@ -1,7 +1,6 @@
 [database]
 mongodb = "mongodb://mongodb:27017"
-# Dev/CI password - matches docker-compose.yml redis service
-redis = "redis://:redisdev@redis:6379/"
+redis = "redis://redis:6379/"
 
 [rabbit]
 host = "rabbitmq"
