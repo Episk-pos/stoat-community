@@ -31,7 +31,9 @@ services:
     ports:
       - "6379:6379"
     # Dev/CI password - production uses secrets management
-    command: keydb-server --requirepass redisdev
+    environment:
+      REDIS_PASSWORD: redisdev
+    command: keydb-server --requirepass redisdev --protected-mode no
 
   mongodb:
     image: mongo
