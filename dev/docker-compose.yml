@@ -30,7 +30,7 @@ services:
     image: eqalpha/keydb
     ports:
       - "6379:6379"
-    command: ["keydb-server", "--requirepass", "redisdev"]
+    command: ["keydb-server", "--bind", "0.0.0.0", "--requirepass", "redisdev"]
     healthcheck:
       test: ["CMD", "keydb-cli", "-a", "redisdev", "ping"]
       interval: 5s
