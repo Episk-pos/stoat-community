@@ -1,6 +1,8 @@
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
+load("resolve-repos.star", "resolve_repo")
+
 config.define_string('backend_path')
 config.define_string('frontend_path')
 config.define_string('flutter_path')
@@ -10,15 +12,21 @@ config.define_bool('knowledge-browser')
 config.define_bool('discord-stoat-sync')
 config.define_bool('activity-sim')
 config.define_bool('e2e-tests')
+config.define_bool('billing-api')
+config.define_bool('full-stack')
 cfg = config.parse()
 
-BACKEND = cfg.get('backend_path', os.path.join(os.getcwd(), '../../stoat-backend'))
-FRONTEND = cfg.get('frontend_path', os.path.join(os.getcwd(), '../../stoat-frontend'))
-FLUTTER = cfg.get('flutter_path', os.path.join(os.getcwd(), '../../stoat-flutter'))
+BACKEND = cfg.get('backend_path', resolve_repo('stoat-backend'))
+FRONTEND = cfg.get('frontend_path', resolve_repo('stoat-frontend'))
+FLUTTER = cfg.get('flutter_path', resolve_repo('stoat-flutter'))
 DOCKER_DIR = os.path.join(os.getcwd(), 'docker')
-SIBLING_DIR = os.path.join(os.getcwd(), '../..')
 PREBUILT = cfg.get('prebuilt', False)
 COMPOSE = cfg.get('compose', False)
+FULL_STACK = cfg.get('full-stack', False)
+
+DSS_PATH = resolve_repo('discord-stoat-sync')
+KB_PATH = resolve_repo('knowledge-browser')
+CHAT_PATH = resolve_repo('chat')
 
 REPOS = {
     'backend': {
@@ -90,6 +98,7 @@ if COMPOSE:
                     ' && '.join(['cp %s/target/release/%s %s/' % (BACKEND, svc['binary'], DOCKER_DIR) for svc in SERVICES.values()]),
                 ),
                 deps=[os.path.join(BACKEND, 'crates')],
+                ignore=['**/*.tmp.*', '**/*.swp', '**/*~', '**/*.bak'],
                 labels=['build'],
             )
 
@@ -152,6 +161,7 @@ else:
                     ' '.join(['-p %s' % svc['crate'] for svc in SERVICES.values()]),
                 ),
                 deps=[os.path.join(BACKEND, 'crates')],
+                ignore=['**/*.tmp.*', '**/*.swp', '**/*~', '**/*.bak'],
                 labels=['build'],
             )
 
@@ -229,7 +239,7 @@ if has_frontend:
 # ---------------------------------------------------------------------------
 if has_flutter:
     flutter_deps = ['delta'] if has_backend else []
-    SDK_PATH = os.path.join(SIBLING_DIR, 'stoat-sdk-dart')
+    SDK_PATH = resolve_repo('stoat-sdk-dart')
 
     # Build the flutter dev image (one-time, uses cached Flutter SDK layer)
     local_resource(
@@ -293,8 +303,7 @@ if has_flutter:
 
 load('ext://uibutton', 'cmd_button')
 
-ENABLE_KB = cfg.get('knowledge-browser', False)
-KB_PATH = os.path.join(SIBLING_DIR, 'knowledge-browser')
+ENABLE_KB = cfg.get('knowledge-browser', False) or FULL_STACK
 has_kb = os.path.exists(os.path.join(KB_PATH, 'mix.exs'))
 CONFIG_FILE = os.path.join(os.getcwd(), 'tilt_config.json')
 
@@ -381,8 +390,7 @@ print('Knowledge Browser disabled. Tiltfile will re-evaluate...')
 #             Click Enable/Disable button in the Tilt UI
 # ---------------------------------------------------------------------------
 
-ENABLE_DSS = cfg.get('discord-stoat-sync', False)
-DSS_PATH = os.path.join(SIBLING_DIR, 'discord-stoat-sync')
+ENABLE_DSS = cfg.get('discord-stoat-sync', False) or FULL_STACK
 has_dss = os.path.exists(os.path.join(DSS_PATH, 'package.json'))
 
 if not ENABLE_DSS:
@@ -568,8 +576,7 @@ if not COMPOSE:
 #             Click Enable/Disable button in the Tilt UI
 # ---------------------------------------------------------------------------
 
-ENABLE_E2E = cfg.get('e2e-tests', False)
-CHAT_PATH = os.path.join(SIBLING_DIR, 'chat')
+ENABLE_E2E = cfg.get('e2e-tests', False) or FULL_STACK
 has_e2e = os.path.exists(os.path.join(CHAT_PATH, 'packages/client/e2e/package.json'))
 
 if not ENABLE_E2E:
@@ -637,4 +644,81 @@ print('E2E Tests disabled. Tiltfile will re-evaluate...')
 """ % CONFIG_FILE],
         text='Disable',
         icon_name='power_settings_new',
+    )
+
+# ---------------------------------------------------------------------------
+# Billing API — optional Elixir/Phoenix service (enabled via full-stack)
+# ---------------------------------------------------------------------------
+# Toggle via: tilt args -- --billing-api
+#             Edit tilt_config.json: {"billing-api": true}
+#             Click Enable/Disable button in the Tilt UI
+# ---------------------------------------------------------------------------
+
+ENABLE_BILLING = cfg.get('billing-api', False) or FULL_STACK
+has_billing = os.path.exists(os.path.join(CHAT_PATH, 'billing_api', 'mix.exs'))
+
+if not ENABLE_BILLING:
+    local_resource(
+        '\u26a0\ufe0f billing-api',
+        cmd='echo "Billing API is DISABLED. Click Enable to turn it on."',
+        labels=['billing'],
+    )
+    cmd_button(
+        'enable-billing-api',
+        resource='\u26a0\ufe0f billing-api',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['billing-api'] = True
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Billing API enabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Enable',
+        icon_name='power_settings_new',
+    )
+
+elif not has_billing:
+    local_resource(
+        'billing-api',
+        cmd='echo "Chat repo not found at %s or missing billing_api/mix.exs."' % CHAT_PATH,
+        labels=['billing'],
+    )
+
+elif not COMPOSE:
+    _billing = load_dynamic(CHAT_PATH + '/billing_lib.star')
+    _billing['billing_api_resource'](CHAT_PATH, resource_deps=['delta', 'mongodb'])
+
+    cmd_button(
+        'disable-billing-api',
+        resource='billing-api',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['billing-api'] = False
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Billing API disabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Disable',
+        icon_name='power_settings_new',
+    )
+
+# ---------------------------------------------------------------------------
+# Full Stack toggle
+# ---------------------------------------------------------------------------
+if not FULL_STACK:
+    cmd_button(
+        'enable-full-stack',
+        resource='\u26a0\ufe0f billing-api',
+        argv=['python3', '-c', """
+import json, os
+path = '%s'
+cfg = json.load(open(path)) if os.path.exists(path) else {}
+cfg['full-stack'] = True
+json.dump(cfg, open(path, 'w'), indent=2)
+print('Full Stack mode enabled. Tiltfile will re-evaluate...')
+""" % CONFIG_FILE],
+        text='Enable Full Stack',
+        icon_name='layers',
     )
