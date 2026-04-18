@@ -2,5 +2,6 @@
   "knowledge-browser": true,
   "discord-stoat-sync": true,
   "activity-sim": true,
-  "e2e-tests": true
+  "e2e-tests": true,
+  "full-stack": true
 }

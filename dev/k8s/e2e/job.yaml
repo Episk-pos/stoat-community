@@ -20,6 +20,12 @@ spec:
               value: "http://discord-stoat-sync:3000"
             - name: CI
               value: "true"
+            - name: POSTERN_URL
+              value: "http://discord-stoat-sync:3000"
+            - name: BILLING_API_URL
+              value: "http://billing-api:4000"
+            - name: CENSER_API_URL
+              value: "http://delta:14702"
           resources:
             requests:
               memory: "512Mi"

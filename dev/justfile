@@ -193,6 +193,45 @@ up-compose:
 up-compose-prebuilt: pull-images
     cd {{ justfile_directory() }} && tilt up -- --compose --prebuilt
 
+# Start dev stack with ALL services enabled (billing, postern, unveil, e2e)
+up-full:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just ensure-cluster
+    cd {{ justfile_directory() }} && tilt up -- --full-stack
+
+# Start full stack with Tilt API on Docker bridge
+up-full-shared:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just ensure-cluster
+
+    SEED="{{ CONTEXT }}/censer"
+    PORT_OFFSET=$(( $(echo -n "$SEED" | cksum | cut -d' ' -f1) % 50 * 20 ))
+    TILT_PORT=$(( 10350 + PORT_OFFSET ))
+
+    BRIDGE_IP="127.0.0.1"
+    if command -v jq &>/dev/null && command -v docker &>/dev/null; then
+        DETECTED="$(docker network inspect kind 2>/dev/null \
+            | jq -r '.[0].IPAM.Config[] | select(.Gateway != "" and (.Gateway | contains(":") | not)) | .Gateway' 2>/dev/null || true)"
+        if [ -n "$DETECTED" ]; then
+            BRIDGE_IP="$DETECTED"
+        fi
+    fi
+
+    echo "Tilt API bound to $BRIDGE_IP:$TILT_PORT (reachable from KinD containers)"
+
+    BRIDGE_SCRIPT="{{ justfile_directory() }}/../../assistant/tools/devenv/tilt_api_bridge.sh"
+    if [ -x "$BRIDGE_SCRIPT" ] && command -v socat &>/dev/null; then
+        "$BRIDGE_SCRIPT" --tilt-port "$TILT_PORT" --bridge-ip "$BRIDGE_IP" &
+        BRIDGE_PID=$!
+        trap 'kill $BRIDGE_PID 2>/dev/null; wait $BRIDGE_PID 2>/dev/null' EXIT INT TERM
+    else
+        echo "(Skipping API bridge — socat or bridge script not available)"
+    fi
+
+    cd {{ justfile_directory() }} && tilt up --port "$TILT_PORT" --host "$BRIDGE_IP" -- --full-stack
+
 # Start services directly with docker compose (without Tilt)
 compose-up:
     cd {{ justfile_directory() }} && docker compose up -d
