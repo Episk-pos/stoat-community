@@ -1,0 +1,124 @@
+stages:
+  - lint
+  - integration
+
+# ---------------------------------------------------------------------------
+# Stage 1: Validate compose config
+# ---------------------------------------------------------------------------
+validate-compose:
+  stage: lint
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://localhost:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - docker compose -f dev/docker-compose.yml -f dev/docker-compose.ci.yml config --quiet
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_MERGE_REQUEST_IID
+
+# ---------------------------------------------------------------------------
+# Stage 2: Boot the backend stack and verify health
+# ---------------------------------------------------------------------------
+backend-health:
+  stage: integration
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://localhost:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - apk add --no-cache curl jq
+    # Wait for the Docker daemon inside DinD to become available
+    - |
+      echo "Waiting for Docker daemon..."
+      for i in $(seq 1 30); do
+        docker info >/dev/null 2>&1 && break
+        echo "  attempt $i/30..."
+        sleep 2
+      done
+      docker info >/dev/null 2>&1 || { echo "Docker daemon not available"; exit 1; }
+    - cd dev
+    - docker compose -f docker-compose.yml -f docker-compose.ci.yml build
+  script:
+    # Boot all services
+    - docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+
+    # Wait for postgres to accept connections
+    - |
+      echo "Waiting for Postgres..."
+      for i in $(seq 1 60); do
+        docker compose exec -T postgres pg_isready -U postgres && break
+        echo "  attempt $i/60..."
+        sleep 2
+      done
+      docker compose exec -T postgres pg_isready -U postgres || { echo "Postgres not ready"; exit 1; }
+
+    # Create users and databases that the init script normally handles
+    # (DinD can't mount host files, so the CI overlay clears the init volume)
+    - |
+      echo "Creating databases..."
+      docker compose exec -T postgres psql -U postgres -c "CREATE USER stoat WITH PASSWORD 'stoat';"
+      docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE stoat OWNER stoat;"
+      docker compose exec -T postgres psql -U postgres -c "CREATE USER stoatsync WITH PASSWORD 'stoatsync';"
+      docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE discord_stoat_sync OWNER stoatsync;"
+      docker compose exec -T postgres psql -U postgres -c "CREATE USER unveil WITH PASSWORD 'unveil';"
+      docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE unveil_dev OWNER unveil;"
+      docker compose exec -T postgres psql -U postgres -c "CREATE USER billing WITH PASSWORD 'billing';"
+      docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE billing OWNER billing;"
+      # Grant schema permissions (matching postgres-init.sh behaviour)
+      for db in stoat discord_stoat_sync unveil_dev billing; do
+        user=$(docker compose exec -T postgres psql -U postgres -d "$db" -tAc "SELECT datdba::regrole FROM pg_database WHERE datname = '$db';")
+        docker compose exec -T postgres psql -U postgres -d "$db" -c "GRANT ALL ON SCHEMA public TO $user;"
+      done
+
+    # Wait for delta API (port 14702)
+    - |
+      echo "Waiting for Delta API..."
+      for i in $(seq 1 60); do
+        curl -sf http://localhost:14702/ >/dev/null 2>&1 && break
+        echo "  attempt $i/60..."
+        sleep 2
+      done
+      curl -sf http://localhost:14702/ >/dev/null 2>&1 || {
+        echo "Delta not responding, dumping logs:"
+        docker compose logs delta
+        exit 1
+      }
+
+    # Wait for bonfire websocket (port 14703)
+    - |
+      echo "Waiting for Bonfire..."
+      for i in $(seq 1 30); do
+        curl -sf http://localhost:14703/ >/dev/null 2>&1 && break
+        echo "  attempt $i/30..."
+        sleep 2
+      done
+      curl -sf http://localhost:14703/ >/dev/null 2>&1 || {
+        echo "Bonfire not responding, dumping logs:"
+        docker compose logs bonfire
+        exit 1
+      }
+
+    # Run seed job
+    - docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile seed up seed
+
+    # Final validation — delta returns valid JSON
+    - |
+      echo "Final validation..."
+      response=$(curl -sf http://localhost:14702/)
+      echo "$response" | jq . >/dev/null 2>&1 || {
+        echo "Delta did not return valid JSON: $response"
+        exit 1
+      }
+      echo "Backend stack is healthy."
+  after_script:
+    - cd dev && docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v || true
+  timeout: 15 minutes
+  retry: 1
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_MERGE_REQUEST_IID
